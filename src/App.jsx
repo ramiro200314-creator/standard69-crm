@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
 const GOLD = "#C9A84C";
 const STAGES = ["Consulta", "Cotización", "Confirmación", "Evento", "Post-venta"];
 const STAGE_COLORS = {
@@ -11,45 +10,40 @@ const STAGE_COLORS = {
   "Post-venta":   { fg: "#A78BFA", bg: "rgba(167,139,250,0.10)", bd: "rgba(167,139,250,0.22)" },
 };
 const EVENT_TYPES = ["Cumpleaños", "Corporativo", "Aniversario", "Cena privada", "Boda", "Otro"];
+const PAYMENT_METHODS = ["Transferencia", "Efectivo", "Débito", "Crédito", "Cheque"];
+const PAYMENT_CONCEPTS = ["Seña", "Cuota 1", "Cuota 2", "Saldo", "Pago total", "Otro"];
+const COST_CATS = ["Personal", "Insumos / Bebidas", "Alquiler salón", "Decoración", "Audio / Video", "Catering extra", "Transporte", "Marketing", "Otro"];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const fmtARS  = n  => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n || 0);
-const fmtD    = d  => d ? new Date(d + "T00:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "short" }) : "—";
-const fmtDLong= d  => d ? new Date(d + "T00:00:00").toLocaleDateString("es-AR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }) : "—";
-const nextId  = arr => (arr.length ? Math.max(...arr.map(x => x.id)) : 0) + 1;
-const si      = s  => STAGES.indexOf(s);
-const sc      = s  => STAGE_COLORS[s] || STAGE_COLORS["Consulta"];
+const fmtARS   = n => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n || 0);
+const fmtD     = d => d ? new Date(d + "T00:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "short" }) : "—";
+const fmtDLong = d => d ? new Date(d + "T00:00:00").toLocaleDateString("es-AR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }) : "—";
+const nextId   = arr => (arr.length ? Math.max(...arr.map(x => x.id)) : 0) + 1;
+const si       = s => STAGES.indexOf(s);
+const sc       = s => STAGE_COLORS[s] || STAGE_COLORS["Consulta"];
+const todayStr = () => new Date().toISOString().split("T")[0];
 
-// ─── Persistence ──────────────────────────────────────────────────────────────
 function useLocalStorage(key, initial) {
   const [val, setVal] = useState(() => {
-    try {
-      const stored = localStorage.getItem(key);
-      return stored ? JSON.parse(stored) : initial;
-    } catch { return initial; }
+    try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : initial; }
+    catch { return initial; }
   });
-  const set = (v) => {
-    setVal(v);
-    try { localStorage.setItem(key, JSON.stringify(v)); } catch {}
-  };
+  const set = v => { setVal(v); try { localStorage.setItem(key, JSON.stringify(v)); } catch {} };
   return [val, set];
 }
 
-// ─── Initial Data ─────────────────────────────────────────────────────────────
 const INIT_CLIENTS = [
-  { id: 1, name: "Martina García",   company: "",              phone: "351-555-0101", email: "martina@gmail.com",      type: "Privado",     notes: "Clienta recurrente, muy detallista" },
-  { id: 2, name: "Carlos Rodríguez", company: "Grupo Nexo SA", phone: "351-555-0202", email: "carlos@gruponexo.com",   type: "Corporativo", notes: "Eventos anuales de empresa" },
-  { id: 3, name: "Lucía Fernández",  company: "",              phone: "351-555-0303", email: "lucia@hotmail.com",      type: "Privado",     notes: "" },
+  { id: 1, name: "Martina García",   company: "",              phone: "351-555-0101", email: "martina@gmail.com",    type: "Privado",     notes: "Clienta recurrente, muy detallista" },
+  { id: 2, name: "Carlos Rodríguez", company: "Grupo Nexo SA", phone: "351-555-0202", email: "carlos@gruponexo.com", type: "Corporativo", notes: "Eventos anuales de empresa" },
+  { id: 3, name: "Lucía Fernández",  company: "",              phone: "351-555-0303", email: "lucia@hotmail.com",    type: "Privado",     notes: "" },
 ];
 const INIT_EVENTS = [
-  { id: 1, clientId: 1, clientName: "Martina García",   title: "Cumpleaños 30",        type: "Cumpleaños",  date: "2025-06-15", guests: 40, stage: "Confirmación", amount: 180000, notes: "DJ externo, torta incluida" },
-  { id: 2, clientId: 2, clientName: "Grupo Nexo SA",    title: "Cena equipo Q2",       type: "Corporativo", date: "2025-06-28", guests: 25, stage: "Cotización",   amount: 120000, notes: "Proyector requerido, menú ejecutivo" },
-  { id: 3, clientId: 3, clientName: "Lucía Fernández",  title: "Aniversario de bodas", type: "Aniversario", date: "2025-07-10", guests: 20, stage: "Consulta",     amount: 0,      notes: "Primer contacto vía Instagram" },
-  { id: 4, clientId: 1, clientName: "Martina García",   title: "Despedida de soltera", type: "Otro",        date: "2025-04-20", guests: 15, stage: "Post-venta",   amount: 75000,  notes: "Todo salió excelente ✓" },
-  { id: 5, clientId: 2, clientName: "Grupo Nexo SA",    title: "Lanzamiento Q1",       type: "Corporativo", date: "2025-05-30", guests: 60, stage: "Evento",       amount: 320000, notes: "Audio y video profesional" },
+  { id: 1, clientId: 1, clientName: "Martina García",  title: "Cumpleaños 30",        type: "Cumpleaños",  date: "2025-06-15", guests: 40, stage: "Confirmación", amount: 180000, notes: "DJ externo, torta incluida" },
+  { id: 2, clientId: 2, clientName: "Grupo Nexo SA",   title: "Cena equipo Q2",       type: "Corporativo", date: "2025-06-28", guests: 25, stage: "Cotización",   amount: 120000, notes: "Proyector requerido, menú ejecutivo" },
+  { id: 3, clientId: 3, clientName: "Lucía Fernández", title: "Aniversario de bodas", type: "Aniversario", date: "2025-07-10", guests: 20, stage: "Consulta",     amount: 0,      notes: "Primer contacto vía Instagram" },
+  { id: 4, clientId: 1, clientName: "Martina García",  title: "Despedida de soltera", type: "Otro",        date: "2025-04-20", guests: 15, stage: "Post-venta",   amount: 75000,  notes: "Todo salió excelente ✓" },
+  { id: 5, clientId: 2, clientName: "Grupo Nexo SA",   title: "Lanzamiento Q1",       type: "Corporativo", date: "2025-05-30", guests: 60, stage: "Evento",       amount: 320000, notes: "Audio y video profesional" },
 ];
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const S = {
   card: { background: "#141414", border: "1px solid #1E1E1E", borderRadius: 10, padding: "1.25rem" },
   inp:  { width: "100%", background: "#1A1A1A", border: "1px solid #252525", borderRadius: 6, color: "#F0EAD8", padding: "0.55rem 0.75rem", fontSize: "0.875rem", outline: "none", boxSizing: "border-box", fontFamily: "inherit" },
@@ -58,7 +52,6 @@ const S = {
   lbl:  { display: "block", fontSize: "0.62rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#555045", marginBottom: "0.35rem" },
 };
 
-// ─── StageBadge ───────────────────────────────────────────────────────────────
 function StageBadge({ stage }) {
   const c = sc(stage);
   return (
@@ -69,18 +62,10 @@ function StageBadge({ stage }) {
   );
 }
 
-// ─── Modal ────────────────────────────────────────────────────────────────────
 function Modal({ title, onClose, children, wide }) {
-  useEffect(() => {
-    const handler = e => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
   return (
-    <div
-      onClick={e => e.target === e.currentTarget && onClose()}
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}
-    >
+    <div onClick={e => e.target === e.currentTarget && onClose()}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
       <div style={{ background: "#111", border: "1px solid #222", borderRadius: 12, width: "100%", maxWidth: wide ? 620 : 490, maxHeight: "90vh", overflowY: "auto", padding: "1.75rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
           <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.6rem", fontWeight: 600, color: "#F0EAD8", margin: 0 }}>{title}</h2>
@@ -101,15 +86,18 @@ function Field({ label, children, half }) {
   );
 }
 
-// ─── Sidebar ──────────────────────────────────────────────────────────────────
 const NAV = [
-  { id: "dashboard", label: "Dashboard", sym: "⊙" },
-  { id: "pipeline",  label: "Pipeline",  sym: "⊞" },
-  { id: "clients",   label: "Clientes",  sym: "◎" },
+  { id: "dashboard", label: "Dashboard",  sym: "⊙" },
+  { id: "pipeline",  label: "Pipeline",   sym: "⊞" },
+  { id: "clients",   label: "Clientes",   sym: "◎" },
+  { id: "pagos",     label: "Pagos",      sym: "◈" },
+  { id: "postventa", label: "Post-venta", sym: "◇" },
+  { id: "pyl",       label: "P & L",      sym: "◬" },
 ];
 
-function Sidebar({ view, setView, events }) {
-  const active = events.filter(e => e.stage !== "Post-venta").length;
+function Sidebar({ view, setView, events, payments }) {
+  const active  = events.filter(e => e.stage !== "Post-venta").length;
+  const pending = payments.filter(p => p.status === "Pendiente").length;
   return (
     <aside style={{ width: 210, minWidth: 210, background: "#0D0D0D", borderRight: "1px solid #191919", display: "flex", flexDirection: "column", flexShrink: 0 }}>
       <div style={{ padding: "1.5rem 1.25rem 1.75rem" }}>
@@ -127,6 +115,9 @@ function Sidebar({ view, setView, events }) {
           }}>
             <span style={{ color: view === n.id ? GOLD : "#555045", fontSize: "1rem" }}>{n.sym}</span>
             {n.label}
+            {n.id === "pagos" && pending > 0 && (
+              <span style={{ marginLeft: "auto", background: "rgba(201,168,76,0.2)", color: GOLD, fontSize: "0.6rem", padding: "1px 7px", borderRadius: 10, fontWeight: 600 }}>{pending}</span>
+            )}
           </button>
         ))}
       </nav>
@@ -140,12 +131,15 @@ function Sidebar({ view, setView, events }) {
 }
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
-function Dashboard({ events, clients, setView, setDetailEvent }) {
+function Dashboard({ events, clients, payments, costs, setView, setDetailEvent }) {
   const active    = events.filter(e => e.stage !== "Post-venta").length;
   const quotes    = events.filter(e => e.stage === "Cotización").length;
-  const confirmed = events.filter(e => ["Confirmación", "Evento", "Post-venta"].includes(e.stage)).reduce((s, e) => s + e.amount, 0);
-  const today     = new Date().toISOString().split("T")[0];
-  const upcoming  = events.filter(e => e.date >= today && e.stage !== "Post-venta").sort((a, b) => a.date > b.date ? 1 : -1).slice(0, 5);
+  const confirmed = events.filter(e => ["Confirmación","Evento","Post-venta"].includes(e.stage)).reduce((s, e) => s + e.amount, 0);
+  const collected = payments.filter(p => p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
+  const totalCosts = costs.reduce((s, c) => s + c.amount, 0);
+  const gross = confirmed - totalCosts;
+  const tod = todayStr();
+  const upcoming = events.filter(e => e.date >= tod && e.stage !== "Post-venta").sort((a,b) => a.date > b.date ? 1 : -1).slice(0, 5);
 
   return (
     <div>
@@ -156,14 +150,14 @@ function Dashboard({ events, clients, setView, setDetailEvent }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "0.875rem", marginBottom: "1.75rem" }}>
         {[
-          { lbl: "Eventos activos",    val: active,            sub: "en pipeline"  },
-          { lbl: "Cotizaciones",       val: quotes,            sub: "pendientes"   },
-          { lbl: "Revenue confirmado", val: fmtARS(confirmed), sub: "acumulado", gold: true },
-          { lbl: "Clientes",           val: clients.length,    sub: "en base"      },
+          { lbl: "Eventos activos",    val: active,            sub: "en pipeline"   },
+          { lbl: "Cobrado efectivo",   val: fmtARS(collected), sub: "pagos recibidos", gold: true },
+          { lbl: "Resultado neto",     val: fmtARS(gross),     sub: "revenue − costos", color: gross >= 0 ? "#34D399" : "#D05050" },
+          { lbl: "Clientes",           val: clients.length,    sub: "en base"       },
         ].map((s, i) => (
           <div key={i} style={S.card}>
             <div style={S.lbl}>{s.lbl}</div>
-            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.875rem", fontWeight: 600, color: s.gold ? GOLD : "#F0EAD8", lineHeight: 1.1 }}>{s.val}</div>
+            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.875rem", fontWeight: 600, color: s.color || (s.gold ? GOLD : "#F0EAD8"), lineHeight: 1.1 }}>{s.val}</div>
             <div style={{ fontSize: "0.68rem", color: "#4A4540", marginTop: 3 }}>{s.sub}</div>
           </div>
         ))}
@@ -223,7 +217,7 @@ function Dashboard({ events, clients, setView, setDetailEvent }) {
   );
 }
 
-// ─── Pipeline Kanban ──────────────────────────────────────────────────────────
+// ─── Pipeline ─────────────────────────────────────────────────────────────────
 function Pipeline({ events, onMove, onCard, onNew }) {
   return (
     <div>
@@ -293,7 +287,7 @@ function EventCard({ ev, stageIdx, onCard, onMove }) {
 }
 
 // ─── Clients ──────────────────────────────────────────────────────────────────
-function Clients({ clients, events, onNew, onEdit }) {
+function Clients({ clients, events, payments, onNew, onEdit }) {
   const [search, setSearch] = useState("");
   const filtered = clients.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -316,14 +310,15 @@ function Clients({ clients, events, onNew, onEdit }) {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: "1px solid #1A1A1A" }}>
-              {["Nombre", "Empresa", "Tipo", "Teléfono", "Email", "Eventos", ""].map(h => (
+              {["Nombre", "Empresa", "Tipo", "Teléfono", "Email", "Eventos", "Revenue", ""].map(h => (
                 <th key={h} style={{ padding: "0.7rem 1rem", textAlign: "left", fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#454035", fontWeight: 500 }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filtered.map(c => {
-              const evCount = events.filter(e => e.clientId === c.id).length;
+              const cEvs = events.filter(e => e.clientId === c.id);
+              const revenue = cEvs.filter(e => ["Confirmación","Evento","Post-venta"].includes(e.stage)).reduce((s, e) => s + e.amount, 0);
               return (
                 <tr key={c.id} style={{ borderBottom: "1px solid #161616" }}
                   onMouseEnter={e => e.currentTarget.style.background = "#121212"}
@@ -337,7 +332,8 @@ function Clients({ clients, events, onNew, onEdit }) {
                   </td>
                   <td style={{ padding: "0.875rem 1rem", fontSize: "0.8rem", color: "#7A7068" }}>{c.phone}</td>
                   <td style={{ padding: "0.875rem 1rem", fontSize: "0.8rem", color: "#7A7068" }}>{c.email}</td>
-                  <td style={{ padding: "0.875rem 1rem", fontFamily: "'Cormorant Garamond',serif", fontSize: "1.3rem", color: evCount > 0 ? GOLD : "#383330", fontWeight: 600 }}>{evCount}</td>
+                  <td style={{ padding: "0.875rem 1rem", fontFamily: "'Cormorant Garamond',serif", fontSize: "1.3rem", color: cEvs.length > 0 ? GOLD : "#383330", fontWeight: 600 }}>{cEvs.length}</td>
+                  <td style={{ padding: "0.875rem 1rem", fontSize: "0.8rem", color: revenue > 0 ? "#34D399" : "#383330" }}>{revenue > 0 ? fmtARS(revenue) : "—"}</td>
                   <td style={{ padding: "0.875rem 1rem" }}>
                     <button type="button" onClick={() => onEdit(c)} style={{ ...S.btnS, padding: "0.3rem 0.75rem", fontSize: "0.72rem" }}>Editar</button>
                   </td>
@@ -349,6 +345,424 @@ function Clients({ clients, events, onNew, onEdit }) {
         {filtered.length === 0 && <div style={{ padding: "2rem", textAlign: "center", color: "#4A4540", fontSize: "0.875rem" }}>Sin resultados</div>}
       </div>
     </div>
+  );
+}
+
+// ─── Pagos ────────────────────────────────────────────────────────────────────
+function Pagos({ events, payments, onAdd, onDelete }) {
+  const [showForm, setShowForm] = useState(false);
+  const [filterEv, setFilterEv] = useState("all");
+
+  const cobrado  = payments.filter(p => p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
+  const pendiente = payments.filter(p => p.status === "Pendiente").reduce((s, p) => s + p.amount, 0);
+  const vencido  = payments.filter(p => p.status === "Vencido").reduce((s, p) => s + p.amount, 0);
+
+  const filtered = filterEv === "all" ? payments : payments.filter(p => p.eventId === parseInt(filterEv));
+
+  const evProgress = events.filter(e => e.amount > 0).map(ev => {
+    const paid = payments.filter(p => p.eventId === ev.id && p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
+    return { ...ev, paid };
+  });
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
+        <div>
+          <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2.25rem", fontWeight: 600, color: "#F0EAD8", margin: 0 }}>Pagos</h1>
+          <div style={{ color: "#555045", fontSize: "0.78rem", marginTop: 2 }}>{payments.length} registros</div>
+        </div>
+        <button type="button" onClick={() => setShowForm(true)} style={S.btnP}>+ Registrar pago</button>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "0.875rem", marginBottom: "1.75rem" }}>
+        {[
+          { lbl: "Total cobrado",  val: fmtARS(cobrado),   color: "#34D399" },
+          { lbl: "Pendiente",      val: fmtARS(pendiente), color: GOLD },
+          { lbl: "Vencido",        val: fmtARS(vencido),   color: "#D05050" },
+        ].map((s, i) => (
+          <div key={i} style={S.card}>
+            <div style={S.lbl}>{s.lbl}</div>
+            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.875rem", fontWeight: 600, color: s.color, lineHeight: 1.1 }}>{s.val}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ ...S.card, marginBottom: "1.5rem" }}>
+        <div style={{ fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6A6055", marginBottom: "1rem" }}>Progreso de cobro por evento</div>
+        {evProgress.length === 0 && <div style={{ color: "#4A4540", fontSize: "0.875rem" }}>Sin eventos con monto asignado</div>}
+        {evProgress.map(ev => {
+          const pct = Math.min(100, Math.round((ev.paid / ev.amount) * 100));
+          return (
+            <div key={ev.id} style={{ marginBottom: "0.875rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                <span style={{ fontSize: "0.8rem", color: "#F0EAD8" }}>{ev.title} <span style={{ color: "#555045" }}>· {ev.clientName}</span></span>
+                <span style={{ fontSize: "0.75rem", color: GOLD }}>{fmtARS(ev.paid)} / {fmtARS(ev.amount)}</span>
+              </div>
+              <div style={{ background: "#1A1A1A", borderRadius: 4, height: 6 }}>
+                <div style={{ width: `${pct}%`, height: "100%", background: pct === 100 ? "#34D399" : GOLD, borderRadius: 4 }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ marginBottom: "1rem" }}>
+        <select value={filterEv} onChange={e => setFilterEv(e.target.value)} style={{ ...S.inp, width: 240 }}>
+          <option value="all">Todos los eventos</option>
+          {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
+        </select>
+      </div>
+
+      <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ borderBottom: "1px solid #1A1A1A" }}>
+              {["Evento / Cliente", "Concepto", "Monto", "Método", "Fecha", "Estado", ""].map(h => (
+                <th key={h} style={{ padding: "0.7rem 1rem", textAlign: "left", fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#454035", fontWeight: 500 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 && (
+              <tr><td colSpan={7} style={{ padding: "2rem", textAlign: "center", color: "#4A4540", fontSize: "0.875rem" }}>Sin pagos registrados</td></tr>
+            )}
+            {filtered.map(p => {
+              const ev = events.find(e => e.id === p.eventId);
+              const sc2 = p.status === "Pagado" ? "#34D399" : p.status === "Vencido" ? "#D05050" : GOLD;
+              return (
+                <tr key={p.id} style={{ borderBottom: "1px solid #161616" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "#121212"}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  <td style={{ padding: "0.875rem 1rem" }}>
+                    <div style={{ fontSize: "0.825rem", color: "#F0EAD8" }}>{ev?.title || "—"}</div>
+                    <div style={{ fontSize: "0.7rem", color: "#555045" }}>{ev?.clientName || ""}</div>
+                  </td>
+                  <td style={{ padding: "0.875rem 1rem", fontSize: "0.8rem", color: "#B0A898" }}>{p.concept}</td>
+                  <td style={{ padding: "0.875rem 1rem", fontSize: "0.875rem", color: GOLD, fontWeight: 500 }}>{fmtARS(p.amount)}</td>
+                  <td style={{ padding: "0.875rem 1rem", fontSize: "0.8rem", color: "#7A7068" }}>{p.method}</td>
+                  <td style={{ padding: "0.875rem 1rem", fontSize: "0.8rem", color: "#7A7068" }}>{fmtD(p.date)}</td>
+                  <td style={{ padding: "0.875rem 1rem" }}>
+                    <span style={{ fontSize: "0.65rem", padding: "2px 9px", borderRadius: 12, background: `${sc2}18`, color: sc2 }}>{p.status}</span>
+                  </td>
+                  <td style={{ padding: "0.875rem 1rem" }}>
+                    <button type="button" onClick={() => onDelete(p.id)} style={{ ...S.btnS, padding: "0.3rem 0.6rem", fontSize: "0.72rem", color: "#D05050", borderColor: "rgba(208,80,80,0.25)" }}>×</button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {showForm && <PaymentForm events={events} onSave={d => { onAdd(d); setShowForm(false); }} onClose={() => setShowForm(false)} />}
+    </div>
+  );
+}
+
+function PaymentForm({ events, onSave, onClose }) {
+  const [f, setF] = useState({ eventId: "", concept: "Seña", amount: "", method: "Transferencia", date: todayStr(), status: "Pagado", notes: "" });
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+  const submit = () => {
+    if (!f.eventId || !f.amount) { alert("Seleccioná un evento e ingresá el monto."); return; }
+    onSave({ ...f, eventId: parseInt(f.eventId), amount: parseFloat(f.amount) });
+  };
+  return (
+    <Modal title="Registrar pago" onClose={onClose}>
+      <Field label="Evento *">
+        <select value={f.eventId} onChange={e => set("eventId", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+          <option value="">Seleccionar evento...</option>
+          {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title} — {ev.clientName}</option>)}
+        </select>
+      </Field>
+      <div style={{ display: "flex", gap: "1rem" }}>
+        <Field label="Concepto" half>
+          <select value={f.concept} onChange={e => set("concept", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+            {PAYMENT_CONCEPTS.map(c => <option key={c}>{c}</option>)}
+          </select>
+        </Field>
+        <Field label="Estado" half>
+          <select value={f.status} onChange={e => set("status", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+            {["Pagado","Pendiente","Vencido"].map(s => <option key={s}>{s}</option>)}
+          </select>
+        </Field>
+      </div>
+      <div style={{ display: "flex", gap: "1rem" }}>
+        <Field label="Monto (ARS) *" half>
+          <input type="number" value={f.amount} onChange={e => set("amount", e.target.value)} style={S.inp} placeholder="0" />
+        </Field>
+        <Field label="Fecha" half>
+          <input type="date" value={f.date} onChange={e => set("date", e.target.value)} style={S.inp} />
+        </Field>
+      </div>
+      <Field label="Método de pago">
+        <select value={f.method} onChange={e => set("method", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+          {PAYMENT_METHODS.map(m => <option key={m}>{m}</option>)}
+        </select>
+      </Field>
+      <Field label="Notas">
+        <textarea value={f.notes} onChange={e => set("notes", e.target.value)} style={{ ...S.inp, minHeight: 55, resize: "vertical" }} placeholder="Observaciones..." />
+      </Field>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.625rem", marginTop: "0.5rem" }}>
+        <button type="button" onClick={onClose} style={S.btnS}>Cancelar</button>
+        <button type="button" onClick={submit} style={S.btnP}>Guardar pago</button>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Post-venta ───────────────────────────────────────────────────────────────
+function PostVenta({ events, postventas, onSave }) {
+  const pvEvents = events.filter(e => e.stage === "Post-venta");
+  const withRating = postventas.filter(p => p.rating > 0);
+  const avg = withRating.length ? (withRating.reduce((s, p) => s + p.rating, 0) / withRating.length).toFixed(1) : "—";
+  const refer = postventas.filter(p => p.wouldRefer === "Sí").length;
+
+  return (
+    <div>
+      <div style={{ marginBottom: "2rem" }}>
+        <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2.25rem", fontWeight: 600, color: "#F0EAD8", margin: 0 }}>Post-venta</h1>
+        <div style={{ color: "#555045", fontSize: "0.78rem", marginTop: 2 }}>{pvEvents.length} eventos completados</div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "0.875rem", marginBottom: "1.75rem" }}>
+        {[
+          { lbl: "Eventos completados", val: pvEvents.length, sub: "post-venta" },
+          { lbl: "Satisfacción promedio", val: avg === "—" ? "—" : `${avg} / 5`, sub: "rating", gold: true },
+          { lbl: "Recomendarían", val: refer, sub: "clientes" },
+        ].map((s, i) => (
+          <div key={i} style={S.card}>
+            <div style={S.lbl}>{s.lbl}</div>
+            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.875rem", fontWeight: 600, color: s.gold ? GOLD : "#F0EAD8", lineHeight: 1.1 }}>{s.val}</div>
+            <div style={{ fontSize: "0.68rem", color: "#4A4540", marginTop: 3 }}>{s.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {pvEvents.length === 0 && (
+        <div style={{ ...S.card, textAlign: "center", color: "#4A4540", fontSize: "0.875rem", padding: "2.5rem" }}>
+          Ningún evento ha llegado a Post-venta aún. Avanzá eventos desde el Pipeline.
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "1rem" }}>
+        {pvEvents.map(ev => {
+          const pv = postventas.find(p => p.eventId === ev.id) || {};
+          const update = patch => onSave({ eventId: ev.id, rating: 0, wouldRefer: "Pendiente", testimonial: "", ...pv, ...patch });
+          return (
+            <div key={ev.id} style={S.card}>
+              <div style={{ marginBottom: "0.75rem" }}>
+                <div style={{ fontSize: "0.875rem", fontWeight: 500, color: "#F0EAD8" }}>{ev.title}</div>
+                <div style={{ fontSize: "0.72rem", color: "#555045" }}>{ev.clientName} · {fmtD(ev.date)} · {ev.guests} pers.</div>
+              </div>
+              {ev.amount > 0 && <div style={{ fontSize: "0.8rem", color: GOLD, marginBottom: "0.875rem" }}>{fmtARS(ev.amount)}</div>}
+
+              <div style={{ marginBottom: "0.75rem" }}>
+                <div style={S.lbl}>Satisfacción del cliente</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {[1,2,3,4,5].map(star => (
+                    <span key={star} onClick={() => update({ rating: star })}
+                      style={{ fontSize: "1.4rem", cursor: "pointer", color: (pv.rating || 0) >= star ? GOLD : "#252520", userSelect: "none" }}>★</span>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: "0.75rem" }}>
+                <div style={{ ...S.lbl, marginBottom: "0.5rem" }}>¿Recomendaría?</div>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  {["Sí","No","Pendiente"].map(opt => {
+                    const active = (pv.wouldRefer || "Pendiente") === opt;
+                    const col = opt === "Sí" ? "#34D399" : opt === "No" ? "#D05050" : "#8A8278";
+                    return (
+                      <button key={opt} type="button" onClick={() => update({ wouldRefer: opt })}
+                        style={{ padding: "3px 12px", borderRadius: 12, fontSize: "0.68rem", cursor: "pointer", fontFamily: "inherit", border: `1px solid ${active ? col : "#252525"}`, background: active ? `${col}18` : "#1A1A1A", color: active ? col : "#555045" }}>
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <div style={S.lbl}>Testimonio / notas</div>
+                <textarea value={pv.testimonial || ""}
+                  onChange={e => update({ testimonial: e.target.value })}
+                  style={{ ...S.inp, minHeight: 65, resize: "vertical", fontSize: "0.8rem" }}
+                  placeholder="Comentarios del cliente..." />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── P & L ────────────────────────────────────────────────────────────────────
+function PyL({ events, payments, costs, onAddCost, onDeleteCost }) {
+  const [showForm, setShowForm] = useState(false);
+  const [period, setPeriod] = useState("all");
+
+  const months = useMemo(() => {
+    const all = events.map(e => e.date?.slice(0,7)).filter(Boolean);
+    return [...new Set(all)].sort().reverse();
+  }, [events]);
+
+  const filteredEvIds = useMemo(() => {
+    if (period === "all") return new Set(events.map(e => e.id));
+    return new Set(events.filter(e => e.date?.slice(0,7) === period).map(e => e.id));
+  }, [events, period]);
+
+  const revenue   = events.filter(e => filteredEvIds.has(e.id) && ["Confirmación","Evento","Post-venta"].includes(e.stage)).reduce((s, e) => s + e.amount, 0);
+  const collected = payments.filter(p => filteredEvIds.has(p.eventId) && p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
+  const totalCosts = costs.filter(c => !c.eventId || filteredEvIds.has(c.eventId)).reduce((s, c) => s + c.amount, 0);
+  const gross  = revenue - totalCosts;
+  const margin = revenue > 0 ? ((gross / revenue) * 100).toFixed(1) : "—";
+
+  const byCat = COST_CATS.map(cat => ({
+    cat,
+    total: costs.filter(c => c.category === cat && (!c.eventId || filteredEvIds.has(c.eventId))).reduce((s, c) => s + c.amount, 0),
+  })).filter(x => x.total > 0);
+
+  const chartData = months.slice(0, 6).reverse().map(m => {
+    const rev  = events.filter(e => e.date?.slice(0,7) === m && ["Confirmación","Evento","Post-venta"].includes(e.stage)).reduce((s, e) => s + e.amount, 0);
+    const cost = costs.filter(c => c.date?.slice(0,7) === m).reduce((s, c) => s + c.amount, 0);
+    return { m, rev, cost };
+  });
+  const maxVal = Math.max(...chartData.map(d => Math.max(d.rev, d.cost)), 1);
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
+        <div>
+          <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2.25rem", fontWeight: 600, color: "#F0EAD8", margin: 0 }}>P & L</h1>
+          <div style={{ color: "#555045", fontSize: "0.78rem", marginTop: 2 }}>Resultados · Standard 69</div>
+        </div>
+        <div style={{ display: "flex", gap: "0.75rem" }}>
+          <select value={period} onChange={e => setPeriod(e.target.value)} style={{ ...S.inp, width: 160 }}>
+            <option value="all">Todo el período</option>
+            {months.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+          <button type="button" onClick={() => setShowForm(true)} style={S.btnP}>+ Registrar costo</button>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "0.875rem", marginBottom: "1.75rem" }}>
+        {[
+          { lbl: "Revenue confirmado", val: fmtARS(revenue),    color: "#34D399" },
+          { lbl: "Cobrado efectivo",   val: fmtARS(collected),  color: GOLD },
+          { lbl: "Costos totales",     val: fmtARS(totalCosts), color: "#D05050" },
+          { lbl: "Resultado neto",     val: fmtARS(gross), sub: margin !== "—" ? `Margen ${margin}%` : "", color: gross >= 0 ? "#34D399" : "#D05050" },
+        ].map((s, i) => (
+          <div key={i} style={S.card}>
+            <div style={S.lbl}>{s.lbl}</div>
+            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.7rem", fontWeight: 600, color: s.color, lineHeight: 1.1 }}>{s.val}</div>
+            {s.sub && <div style={{ fontSize: "0.68rem", color: "#4A4540", marginTop: 3 }}>{s.sub}</div>}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: "1.125rem", marginBottom: "1.5rem" }}>
+        <div style={S.card}>
+          <div style={{ fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6A6055", marginBottom: "1.25rem" }}>Revenue vs Costos por mes</div>
+          {chartData.length === 0 && <div style={{ color: "#4A4540", fontSize: "0.875rem" }}>Sin datos suficientes</div>}
+          <div style={{ display: "flex", gap: "0.625rem", alignItems: "flex-end", height: 120 }}>
+            {chartData.map(d => (
+              <div key={d.m} style={{ flex: 1, display: "flex", gap: 3, alignItems: "flex-end", height: "100%" }}>
+                <div title={`Revenue: ${fmtARS(d.rev)}`}
+                  style={{ flex: 1, height: `${Math.round((d.rev / maxVal) * 100)}%`, minHeight: d.rev > 0 ? 4 : 0, background: "rgba(52,211,153,0.45)", borderRadius: "3px 3px 0 0" }} />
+                <div title={`Costos: ${fmtARS(d.cost)}`}
+                  style={{ flex: 1, height: `${Math.round((d.cost / maxVal) * 100)}%`, minHeight: d.cost > 0 ? 4 : 0, background: "rgba(208,80,80,0.45)", borderRadius: "3px 3px 0 0" }} />
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: "0.625rem", marginTop: "0.5rem" }}>
+            {chartData.map(d => (
+              <div key={d.m} style={{ flex: 1, textAlign: "center", fontSize: "0.58rem", color: "#454035" }}>{d.m.slice(5)}</div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: "1.25rem", marginTop: "0.75rem" }}>
+            <span style={{ fontSize: "0.68rem", color: "#34D399" }}>■ Revenue</span>
+            <span style={{ fontSize: "0.68rem", color: "#D05050" }}>■ Costos</span>
+          </div>
+        </div>
+
+        <div style={S.card}>
+          <div style={{ fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6A6055", marginBottom: "1.125rem" }}>Costos por categoría</div>
+          {byCat.length === 0 && <div style={{ color: "#4A4540", fontSize: "0.875rem" }}>Sin costos registrados</div>}
+          {byCat.map(({ cat, total }) => (
+            <div key={cat} style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+              <span style={{ fontSize: "0.8rem", color: "#B0A898" }}>{cat}</span>
+              <span style={{ fontSize: "0.8rem", color: "#D05050", fontWeight: 500 }}>{fmtARS(total)}</span>
+            </div>
+          ))}
+          {byCat.length > 0 && (
+            <div style={{ marginTop: "0.875rem", paddingTop: "0.75rem", borderTop: "1px solid #181818", display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "0.75rem", color: "#555045" }}>Total</span>
+              <span style={{ fontSize: "0.875rem", color: "#D05050", fontWeight: 600 }}>{fmtARS(totalCosts)}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={S.card}>
+        <div style={{ fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6A6055", marginBottom: "1rem" }}>Detalle de costos</div>
+        {costs.length === 0 && <div style={{ color: "#4A4540", fontSize: "0.875rem" }}>Sin costos registrados. Usá "+ Registrar costo" para agregar.</div>}
+        {costs.map(c => {
+          const ev = events.find(e => e.id === c.eventId);
+          return (
+            <div key={c.id} style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "0.6rem 0", borderBottom: "1px solid #181818" }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: "0.825rem", color: "#F0EAD8" }}>{c.notes || c.category}</div>
+                <div style={{ fontSize: "0.7rem", color: "#555045" }}>{c.category}{ev ? ` · ${ev.title}` : " · General"} · {fmtD(c.date)}</div>
+              </div>
+              <div style={{ fontSize: "0.875rem", color: "#D05050", fontWeight: 500 }}>{fmtARS(c.amount)}</div>
+              <button type="button" onClick={() => onDeleteCost(c.id)} style={{ ...S.btnS, padding: "0.25rem 0.6rem", fontSize: "0.72rem", color: "#D05050", borderColor: "rgba(208,80,80,0.25)" }}>×</button>
+            </div>
+          );
+        })}
+      </div>
+
+      {showForm && <CostForm events={events} onSave={d => { onAddCost(d); setShowForm(false); }} onClose={() => setShowForm(false)} />}
+    </div>
+  );
+}
+
+function CostForm({ events, onSave, onClose }) {
+  const [f, setF] = useState({ eventId: "", category: "Personal", amount: "", date: todayStr(), notes: "" });
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+  const submit = () => {
+    if (!f.amount) { alert("Ingresá el monto."); return; }
+    onSave({ ...f, eventId: f.eventId ? parseInt(f.eventId) : null, amount: parseFloat(f.amount) });
+  };
+  return (
+    <Modal title="Registrar costo" onClose={onClose}>
+      <Field label="Categoría">
+        <select value={f.category} onChange={e => set("category", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+          {COST_CATS.map(c => <option key={c}>{c}</option>)}
+        </select>
+      </Field>
+      <Field label="Evento asociado (opcional)">
+        <select value={f.eventId} onChange={e => set("eventId", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+          <option value="">General / sin evento</option>
+          {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
+        </select>
+      </Field>
+      <div style={{ display: "flex", gap: "1rem" }}>
+        <Field label="Monto (ARS) *" half>
+          <input type="number" value={f.amount} onChange={e => set("amount", e.target.value)} style={S.inp} placeholder="0" />
+        </Field>
+        <Field label="Fecha" half>
+          <input type="date" value={f.date} onChange={e => set("date", e.target.value)} style={S.inp} />
+        </Field>
+      </div>
+      <Field label="Descripción">
+        <input value={f.notes} onChange={e => set("notes", e.target.value)} style={S.inp} placeholder="Ej: 3 mozos evento, papelería..." />
+      </Field>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.625rem", marginTop: "0.5rem" }}>
+        <button type="button" onClick={onClose} style={S.btnS}>Cancelar</button>
+        <button type="button" onClick={submit} style={S.btnP}>Guardar costo</button>
+      </div>
+    </Modal>
   );
 }
 
@@ -365,7 +779,6 @@ function EventDetail({ ev, onEdit, onMove, onDelete, onClose }) {
         <span style={{ fontSize: "0.78rem", color: "#6A6055" }}>{ev.type}</span>
         {ev.amount > 0 && <><span style={{ color: "#2A2520" }}>·</span><span style={{ fontSize: "0.78rem", color: GOLD, fontWeight: 500 }}>{fmtARS(ev.amount)}</span></>}
       </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1.25rem" }}>
         {[
           { lbl: "Cliente",   val: ev.clientName },
@@ -379,14 +792,12 @@ function EventDetail({ ev, onEdit, onMove, onDelete, onClose }) {
           </div>
         ))}
       </div>
-
       {ev.notes && (
         <div style={{ background: "#1A1A1A", borderRadius: 8, padding: "0.8rem 0.875rem", marginBottom: "1.25rem" }}>
           <div style={S.lbl}>Notas</div>
           <div style={{ fontSize: "0.875rem", color: "#B0A898", lineHeight: 1.55 }}>{ev.notes}</div>
         </div>
       )}
-
       <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: "1.25rem", flexWrap: "wrap" }}>
         {STAGES.map((s, i) => {
           const c = sc(s); const active = s === ev.stage; const past = i < idx;
@@ -400,7 +811,6 @@ function EventDetail({ ev, onEdit, onMove, onDelete, onClose }) {
           );
         })}
       </div>
-
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
         {idx > 0 && <button type="button" onClick={() => onMove(-1)} style={S.btnS}>← Mover atrás</button>}
         {nextStage && (
@@ -418,7 +828,6 @@ function EventDetail({ ev, onEdit, onMove, onDelete, onClose }) {
   );
 }
 
-// ─── Event Form ───────────────────────────────────────────────────────────────
 function EventForm({ ev, clients, onSave, onClose }) {
   const [f, setF] = useState(ev ? { ...ev } : {
     clientId: "", clientName: "", title: "", type: "Cumpleaños",
@@ -468,7 +877,7 @@ function EventForm({ ev, clients, onSave, onClose }) {
         <input type="number" value={f.amount} onChange={e => set("amount", e.target.value)} style={S.inp} placeholder="0" />
       </Field>
       <Field label="Notas">
-        <textarea value={f.notes} onChange={e => set("notes", e.target.value)} style={{ ...S.inp, minHeight: 75, resize: "vertical" }} placeholder="Requerimientos especiales, observaciones..." />
+        <textarea value={f.notes} onChange={e => set("notes", e.target.value)} style={{ ...S.inp, minHeight: 75, resize: "vertical" }} placeholder="Requerimientos especiales..." />
       </Field>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.625rem", marginTop: "0.5rem" }}>
         <button type="button" onClick={onClose} style={S.btnS}>Cancelar</button>
@@ -478,7 +887,6 @@ function EventForm({ ev, clients, onSave, onClose }) {
   );
 }
 
-// ─── Client Form ──────────────────────────────────────────────────────────────
 function ClientForm({ client, onSave, onClose }) {
   const [f, setF] = useState(client ? { ...client } : { name: "", company: "", phone: "", email: "", type: "Privado", notes: "" });
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
@@ -497,8 +905,7 @@ function ClientForm({ client, onSave, onClose }) {
         </Field>
         <Field label="Tipo" half>
           <select value={f.type} onChange={e => set("type", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
-            <option>Privado</option>
-            <option>Corporativo</option>
+            <option>Privado</option><option>Corporativo</option>
           </select>
         </Field>
       </div>
@@ -521,31 +928,46 @@ function ClientForm({ client, onSave, onClose }) {
   );
 }
 
-// ─── Main App ─────────────────────────────────────────────────────────────────
+// ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [view, setView] = useState("dashboard");
-  const [clients, setClients] = useLocalStorage("s69_clients", INIT_CLIENTS);
-  const [events,  setEvents]  = useLocalStorage("s69_events",  INIT_EVENTS);
+  const [clients,    setClients]    = useLocalStorage("s69_clients",    INIT_CLIENTS);
+  const [events,     setEvents]     = useLocalStorage("s69_events",     INIT_EVENTS);
+  const [payments,   setPayments]   = useLocalStorage("s69_payments",   []);
+  const [costs,      setCosts]      = useLocalStorage("s69_costs",      []);
+  const [postventas, setPostventas] = useLocalStorage("s69_postventas", []);
 
   const [eventModal,  setEventModal]  = useState(null);
   const [clientModal, setClientModal] = useState(null);
   const [detailEvent, setDetailEvent] = useState(null);
 
-  const addEvent    = ev => setEvents(p => [...p, { ...ev, id: nextId(p) }]);
-  const updateEvent = ev => setEvents(p => p.map(e => e.id === ev.id ? ev : e));
-  const deleteEvent = id => { setEvents(p => p.filter(e => e.id !== id)); setDetailEvent(null); };
-  const moveStage   = (ev, dir) => { const next = STAGES[si(ev.stage) + dir]; if (next) updateEvent({ ...ev, stage: next }); };
-  const addClient   = cl => setClients(p => [...p, { ...cl, id: nextId(p) }]);
-  const updateClient= cl => setClients(p => p.map(c => c.id === cl.id ? cl : c));
+  const addEvent     = ev => setEvents(p => [...p, { ...ev, id: nextId(p) }]);
+  const updateEvent  = ev => setEvents(p => p.map(e => e.id === ev.id ? ev : e));
+  const deleteEvent  = id => { setEvents(p => p.filter(e => e.id !== id)); setDetailEvent(null); };
+  const moveStage    = (ev, dir) => { const next = STAGES[si(ev.stage) + dir]; if (next) updateEvent({ ...ev, stage: next }); };
+  const addClient    = cl => setClients(p => [...p, { ...cl, id: nextId(p) }]);
+  const updateClient = cl => setClients(p => p.map(c => c.id === cl.id ? cl : c));
+
+  const addPayment    = p  => setPayments(prev => [...prev, { ...p, id: nextId(prev) }]);
+  const deletePayment = id => setPayments(prev => prev.filter(p => p.id !== id));
+  const addCost       = c  => setCosts(prev => [...prev, { ...c, id: nextId(prev) }]);
+  const deleteCost    = id => setCosts(prev => prev.filter(c => c.id !== id));
+  const savePostventa = pv => setPostventas(prev => {
+    const exists = prev.find(p => p.eventId === pv.eventId);
+    return exists ? prev.map(p => p.eventId === pv.eventId ? pv : p) : [...prev, pv];
+  });
 
   return (
     <div style={{ display: "flex", height: "100vh", background: "#0A0A0A", fontFamily: "'DM Sans',sans-serif", color: "#F0EAD8" }}>
-      <Sidebar view={view} setView={setView} events={events} />
+      <Sidebar view={view} setView={setView} events={events} payments={payments} />
 
       <main style={{ flex: 1, overflowY: "auto", padding: "2rem", minWidth: 0 }}>
-        {view === "dashboard" && <Dashboard events={events} clients={clients} setView={setView} setDetailEvent={setDetailEvent} />}
+        {view === "dashboard" && <Dashboard events={events} clients={clients} payments={payments} costs={costs} setView={setView} setDetailEvent={setDetailEvent} />}
         {view === "pipeline"  && <Pipeline  events={events} onMove={moveStage} onCard={setDetailEvent} onNew={() => setEventModal("new")} />}
-        {view === "clients"   && <Clients   clients={clients} events={events} onNew={() => setClientModal("new")} onEdit={setClientModal} />}
+        {view === "clients"   && <Clients   clients={clients} events={events} payments={payments} onNew={() => setClientModal("new")} onEdit={setClientModal} />}
+        {view === "pagos"     && <Pagos     events={events} payments={payments} onAdd={addPayment} onDelete={deletePayment} />}
+        {view === "postventa" && <PostVenta events={events} postventas={postventas} onSave={savePostventa} />}
+        {view === "pyl"       && <PyL       events={events} payments={payments} costs={costs} onAddCost={addCost} onDeleteCost={deleteCost} />}
       </main>
 
       {detailEvent && (
