@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 
 // ─── Google Sheets API ────────────────────────────────────────────────────────
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCEuPro2M5gKImueRdnUr4kfCnyvy_qO_UYza2EzsipiFu0qvlSDx4X7HYes7FtJaHZQ/exec";
@@ -99,6 +99,57 @@ function Field({ label, children, half }) {
   );
 }
 
+// ─── Auth Screen ──────────────────────────────────────────────────────────────
+function AuthScreen({ onLogin }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
+    if (!email || !password) return;
+    setLoading(true);
+    setError("");
+    try {
+      await onLogin(email, password);
+    } catch(e) {
+      setError(e.message || "Error al iniciar sesión");
+    }
+    setLoading(false);
+  };
+
+  const onKey = e => { if (e.key === "Enter") submit(); };
+
+  return (
+    <div style={{ display: "flex", height: "100vh", background: "#0A0A0A", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ width: 360, padding: "2.5rem", background: "#111", border: "1px solid #1E1E1E", borderRadius: 14 }}>
+        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+          <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2rem", fontWeight: 700, color: GOLD, letterSpacing: "0.06em" }}>Standard 69</div>
+          <div style={{ fontSize: "0.62rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "#3A3530", marginTop: 4 }}>Event CRM</div>
+        </div>
+
+        <div style={{ marginBottom: "1rem" }}>
+          <label style={S.lbl}>Email</label>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={onKey}
+            style={S.inp} placeholder="tu@email.com" autoFocus />
+        </div>
+        <div style={{ marginBottom: "1.5rem" }}>
+          <label style={S.lbl}>Contraseña</label>
+          <input type="password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={onKey}
+            style={S.inp} placeholder="••••••••" />
+        </div>
+
+        {error && <div style={{ color: "#D05050", fontSize: "0.8rem", marginBottom: "1rem", textAlign: "center" }}>{error}</div>}
+
+        <button type="button" onClick={submit} disabled={loading}
+          style={{ ...S.btnP, width: "100%", padding: "0.75rem", fontSize: "0.9rem", opacity: loading ? 0.7 : 1 }}>
+          {loading ? "Ingresando..." : "Ingresar"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 const NAV = [
   { id: "dashboard", label: "Dashboard",  sym: "⊙" },
   { id: "pipeline",  label: "Pipeline",   sym: "⊞" },
@@ -108,12 +159,12 @@ const NAV = [
   { id: "pyl",       label: "P & L",      sym: "◬" },
 ];
 
-function Sidebar({ view, setView, events, payments, syncing }) {
+function Sidebar({ view, setView, events, payments, syncing, user, onLogout }) {
   const active  = events.filter(e => e.stage !== "Post-venta").length;
   const pending = payments.filter(p => p.status === "Pendiente").length;
   return (
     <aside style={{ width: 210, minWidth: 210, background: "#0D0D0D", borderRight: "1px solid #191919", display: "flex", flexDirection: "column", flexShrink: 0 }}>
-      <div style={{ padding: "1.5rem 1.25rem 1.75rem" }}>
+      <div style={{ padding: "1.5rem 1.25rem 1.25rem" }}>
         <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.4rem", fontWeight: 700, color: GOLD, letterSpacing: "0.05em" }}>Standard 69</div>
         <div style={{ fontSize: "0.58rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "#353030", marginTop: 3 }}>Event CRM</div>
       </div>
@@ -140,6 +191,16 @@ function Sidebar({ view, setView, events, payments, syncing }) {
         <div style={{ fontSize: "0.68rem", color: "#3A3530", marginTop: 2 }}>en pipeline</div>
         {syncing && <div style={{ fontSize: "0.6rem", color: "#555045", marginTop: 6 }}>● sincronizando...</div>}
       </div>
+      {user && (
+        <div style={{ padding: "0.875rem 1.25rem", borderTop: "1px solid #181818" }}>
+          <div style={{ fontSize: "0.72rem", color: "#F0EAD8", fontWeight: 500, marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.nombre}</div>
+          <div style={{ fontSize: "0.62rem", color: "#3A3530", marginBottom: "0.625rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.email}</div>
+          <button type="button" onClick={onLogout}
+            style={{ width: "100%", padding: "0.35rem 0", background: "none", border: "1px solid #252525", borderRadius: 5, color: "#555045", fontSize: "0.7rem", cursor: "pointer", fontFamily: "inherit" }}>
+            Cerrar sesión
+          </button>
+        </div>
+      )}
     </aside>
   );
 }
@@ -897,6 +958,8 @@ function ClientForm({ client, onSave, onClose }) {
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [view, setView] = useState("dashboard");
+  const [user, setUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [syncing, setSyncing] = useState(false);
@@ -911,18 +974,43 @@ export default function App() {
   const [clientModal, setClientModal] = useState(null);
   const [detailEvent, setDetailEvent] = useState(null);
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
+    setLoading(true);
     sheetsGet()
       .then(data => {
-        if (data.clientes?.length)    setClients(data.clientes.map(parseClient));
-        if (data.eventos?.length)     setEvents(data.eventos.map(parseEvent));
-        if (data.pagos?.length)       setPayments(data.pagos.map(parsePayment));
-        if (data.costos?.length)      setCosts(data.costos.map(parseCost));
-        if (data.postventas?.length)  setPostventas(data.postventas.map(parsePostventa));
+        if (data.clientes?.length)   setClients(data.clientes.map(parseClient));
+        if (data.eventos?.length)    setEvents(data.eventos.map(parseEvent));
+        if (data.pagos?.length)      setPayments(data.pagos.map(parsePayment));
+        if (data.costos?.length)     setCosts(data.costos.map(parseCost));
+        if (data.postventas?.length) setPostventas(data.postventas.map(parsePostventa));
         setLoading(false);
       })
       .catch(err => { setLoadError(err.message); setLoading(false); });
   }, []);
+
+  // Check existing session on mount
+  useEffect(() => {
+    const token = localStorage.getItem("s69_token");
+    if (!token) { setAuthChecked(true); return; }
+    sheetsPost({ action: "validateSession", data: { token } })
+      .then(u => { setUser({ ...u, token }); setAuthChecked(true); loadData(); })
+      .catch(() => { localStorage.removeItem("s69_token"); setAuthChecked(true); });
+  }, []);
+
+  const handleLogin = async (email, password) => {
+    const u = await sheetsPost({ action: "login", data: { email, password } });
+    localStorage.setItem("s69_token", u.token);
+    setUser(u);
+    loadData();
+  };
+
+  const handleLogout = () => {
+    const token = localStorage.getItem("s69_token");
+    sheetsPost({ action: "logout", data: { token } }).catch(() => {});
+    localStorage.removeItem("s69_token");
+    setUser(null);
+    setClients([]); setEvents([]); setPayments([]); setCosts([]); setPostventas([]);
+  };
 
   const sync = (action, sheet, data, id) => {
     setSyncing(true);
@@ -982,26 +1070,32 @@ export default function App() {
     sync("upsert", "Postventas", pv);
   };
 
+  if (!authChecked) return (
+    <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "#0A0A0A" }}>
+      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2rem", color: GOLD }}>Standard 69</div>
+    </div>
+  );
+
+  if (!user) return <AuthScreen onLogin={handleLogin} />;
+
   if (loading) return (
     <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "#0A0A0A", flexDirection: "column", gap: "1rem" }}>
       <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2rem", color: GOLD }}>Standard 69</div>
-      <div style={{ fontSize: "0.75rem", color: "#555045", letterSpacing: "0.1em" }}>Cargando datos desde Google Sheets...</div>
+      <div style={{ fontSize: "0.75rem", color: "#555045", letterSpacing: "0.1em" }}>Cargando datos...</div>
     </div>
   );
 
   if (loadError) return (
     <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "#0A0A0A", flexDirection: "column", gap: "1rem", padding: "2rem" }}>
       <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2rem", color: "#D05050" }}>Error de conexión</div>
-      <div style={{ fontSize: "0.8rem", color: "#555045", maxWidth: 420, textAlign: "center" }}>
-        No se pudo conectar a Google Sheets. Verificá que la URL del script sea correcta en <code style={{ color: GOLD }}>SCRIPT_URL</code> (App.jsx línea 4).
-      </div>
+      <div style={{ fontSize: "0.8rem", color: "#555045", maxWidth: 420, textAlign: "center" }}>No se pudo conectar a Google Sheets.</div>
       <div style={{ fontSize: "0.72rem", color: "#3A3530", fontFamily: "monospace" }}>{loadError}</div>
     </div>
   );
 
   return (
     <div style={{ display: "flex", height: "100vh", background: "#0A0A0A", fontFamily: "'DM Sans',sans-serif", color: "#F0EAD8" }}>
-      <Sidebar view={view} setView={setView} events={events} payments={payments} syncing={syncing} />
+      <Sidebar view={view} setView={setView} events={events} payments={payments} syncing={syncing} user={user} onLogout={handleLogout} />
       <main style={{ flex: 1, overflowY: "auto", padding: "2rem", minWidth: 0 }}>
         {view === "dashboard" && <Dashboard events={events} clients={clients} payments={payments} costs={costs} setView={setView} setDetailEvent={setDetailEvent} />}
         {view === "pipeline"  && <Pipeline  events={events} onMove={moveStage} onCard={setDetailEvent} onNew={() => setEventModal("new")} />}
