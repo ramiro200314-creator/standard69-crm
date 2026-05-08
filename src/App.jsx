@@ -1,5 +1,30 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 
+// ─── Google Sheets API ────────────────────────────────────────────────────────
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCEuPro2M5gKImueRdnUr4kfCnyvy_qO_UYza2EzsipiFu0qvlSDx4X7HYes7FtJaHZQ/exec";
+
+async function sheetsGet() {
+  const res = await fetch(SCRIPT_URL, { redirect: "follow" });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error);
+  return json.data;
+}
+
+async function sheetsPost(body) {
+  const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(body), redirect: "follow" });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error);
+  return json.data;
+}
+
+const toNum = v => (v === "" || v == null) ? null : Number(v);
+const parseClient    = r => ({ ...r, id: toNum(r.id) });
+const parseEvent     = r => ({ ...r, id: toNum(r.id), clientId: toNum(r.clientId), guests: toNum(r.guests), amount: toNum(r.amount) });
+const parsePayment   = r => ({ ...r, id: toNum(r.id), eventId: toNum(r.eventId), amount: toNum(r.amount) });
+const parseCost      = r => ({ ...r, id: toNum(r.id), eventId: r.eventId ? toNum(r.eventId) : null, amount: toNum(r.amount) });
+const parsePostventa = r => ({ ...r, eventId: toNum(r.eventId), rating: toNum(r.rating) });
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 const GOLD = "#C9A84C";
 const STAGES = ["Consulta", "Cotización", "Confirmación", "Evento", "Post-venta"];
 const STAGE_COLORS = {
@@ -17,32 +42,10 @@ const COST_CATS = ["Personal", "Insumos / Bebidas", "Alquiler salón", "Decoraci
 const fmtARS   = n => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n || 0);
 const fmtD     = d => d ? new Date(d + "T00:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "short" }) : "—";
 const fmtDLong = d => d ? new Date(d + "T00:00:00").toLocaleDateString("es-AR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }) : "—";
-const nextId   = arr => (arr.length ? Math.max(...arr.map(x => x.id)) : 0) + 1;
+const nextId   = arr => (arr.length ? Math.max(...arr.map(x => Number(x.id) || 0)) : 0) + 1;
 const si       = s => STAGES.indexOf(s);
 const sc       = s => STAGE_COLORS[s] || STAGE_COLORS["Consulta"];
 const todayStr = () => new Date().toISOString().split("T")[0];
-
-function useLocalStorage(key, initial) {
-  const [val, setVal] = useState(() => {
-    try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : initial; }
-    catch { return initial; }
-  });
-  const set = v => { setVal(v); try { localStorage.setItem(key, JSON.stringify(v)); } catch {} };
-  return [val, set];
-}
-
-const INIT_CLIENTS = [
-  { id: 1, name: "Martina García",   company: "",              phone: "351-555-0101", email: "martina@gmail.com",    type: "Privado",     notes: "Clienta recurrente, muy detallista" },
-  { id: 2, name: "Carlos Rodríguez", company: "Grupo Nexo SA", phone: "351-555-0202", email: "carlos@gruponexo.com", type: "Corporativo", notes: "Eventos anuales de empresa" },
-  { id: 3, name: "Lucía Fernández",  company: "",              phone: "351-555-0303", email: "lucia@hotmail.com",    type: "Privado",     notes: "" },
-];
-const INIT_EVENTS = [
-  { id: 1, clientId: 1, clientName: "Martina García",  title: "Cumpleaños 30",        type: "Cumpleaños",  date: "2025-06-15", guests: 40, stage: "Confirmación", amount: 180000, notes: "DJ externo, torta incluida" },
-  { id: 2, clientId: 2, clientName: "Grupo Nexo SA",   title: "Cena equipo Q2",       type: "Corporativo", date: "2025-06-28", guests: 25, stage: "Cotización",   amount: 120000, notes: "Proyector requerido, menú ejecutivo" },
-  { id: 3, clientId: 3, clientName: "Lucía Fernández", title: "Aniversario de bodas", type: "Aniversario", date: "2025-07-10", guests: 20, stage: "Consulta",     amount: 0,      notes: "Primer contacto vía Instagram" },
-  { id: 4, clientId: 1, clientName: "Martina García",  title: "Despedida de soltera", type: "Otro",        date: "2025-04-20", guests: 15, stage: "Post-venta",   amount: 75000,  notes: "Todo salió excelente ✓" },
-  { id: 5, clientId: 2, clientName: "Grupo Nexo SA",   title: "Lanzamiento Q1",       type: "Corporativo", date: "2025-05-30", guests: 60, stage: "Evento",       amount: 320000, notes: "Audio y video profesional" },
-];
 
 const S = {
   card: { background: "#141414", border: "1px solid #1E1E1E", borderRadius: 10, padding: "1.25rem" },
@@ -95,7 +98,7 @@ const NAV = [
   { id: "pyl",       label: "P & L",      sym: "◬" },
 ];
 
-function Sidebar({ view, setView, events, payments }) {
+function Sidebar({ view, setView, events, payments, syncing }) {
   const active  = events.filter(e => e.stage !== "Post-venta").length;
   const pending = payments.filter(p => p.status === "Pendiente").length;
   return (
@@ -125,6 +128,7 @@ function Sidebar({ view, setView, events, payments }) {
         <div style={S.lbl}>Eventos activos</div>
         <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2.5rem", color: GOLD, lineHeight: 1, fontWeight: 600 }}>{active}</div>
         <div style={{ fontSize: "0.68rem", color: "#3A3530", marginTop: 2 }}>en pipeline</div>
+        {syncing && <div style={{ fontSize: "0.6rem", color: "#555045", marginTop: 6 }}>● sincronizando...</div>}
       </div>
     </aside>
   );
@@ -132,14 +136,13 @@ function Sidebar({ view, setView, events, payments }) {
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 function Dashboard({ events, clients, payments, costs, setView, setDetailEvent }) {
-  const active    = events.filter(e => e.stage !== "Post-venta").length;
-  const quotes    = events.filter(e => e.stage === "Cotización").length;
-  const confirmed = events.filter(e => ["Confirmación","Evento","Post-venta"].includes(e.stage)).reduce((s, e) => s + e.amount, 0);
-  const collected = payments.filter(p => p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
+  const active     = events.filter(e => e.stage !== "Post-venta").length;
+  const confirmed  = events.filter(e => ["Confirmación","Evento","Post-venta"].includes(e.stage)).reduce((s, e) => s + e.amount, 0);
+  const collected  = payments.filter(p => p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
   const totalCosts = costs.reduce((s, c) => s + c.amount, 0);
-  const gross = confirmed - totalCosts;
-  const tod = todayStr();
-  const upcoming = events.filter(e => e.date >= tod && e.stage !== "Post-venta").sort((a,b) => a.date > b.date ? 1 : -1).slice(0, 5);
+  const gross      = confirmed - totalCosts;
+  const tod        = todayStr();
+  const upcoming   = events.filter(e => e.date >= tod && e.stage !== "Post-venta").sort((a,b) => a.date > b.date ? 1 : -1).slice(0, 5);
 
   return (
     <div>
@@ -147,13 +150,12 @@ function Dashboard({ events, clients, payments, costs, setView, setDetailEvent }
         <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2.25rem", fontWeight: 600, color: "#F0EAD8", margin: 0 }}>Dashboard</h1>
         <div style={{ color: "#555045", fontSize: "0.78rem", marginTop: 2 }}>Vista general · Standard 69</div>
       </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "0.875rem", marginBottom: "1.75rem" }}>
         {[
-          { lbl: "Eventos activos",    val: active,            sub: "en pipeline"   },
-          { lbl: "Cobrado efectivo",   val: fmtARS(collected), sub: "pagos recibidos", gold: true },
-          { lbl: "Resultado neto",     val: fmtARS(gross),     sub: "revenue − costos", color: gross >= 0 ? "#34D399" : "#D05050" },
-          { lbl: "Clientes",           val: clients.length,    sub: "en base"       },
+          { lbl: "Eventos activos",  val: active,            sub: "en pipeline" },
+          { lbl: "Cobrado efectivo", val: fmtARS(collected), sub: "pagos recibidos", gold: true },
+          { lbl: "Resultado neto",   val: fmtARS(gross),     sub: "revenue − costos", color: gross >= 0 ? "#34D399" : "#D05050" },
+          { lbl: "Clientes",         val: clients.length,    sub: "en base" },
         ].map((s, i) => (
           <div key={i} style={S.card}>
             <div style={S.lbl}>{s.lbl}</div>
@@ -162,7 +164,6 @@ function Dashboard({ events, clients, payments, costs, setView, setDetailEvent }
           </div>
         ))}
       </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: "1.125rem" }}>
         <div style={S.card}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.125rem" }}>
@@ -189,7 +190,6 @@ function Dashboard({ events, clients, payments, costs, setView, setDetailEvent }
             </div>
           ))}
         </div>
-
         <div style={S.card}>
           <div style={{ fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6A6055", marginBottom: "1.125rem" }}>Estado del Pipeline</div>
           {STAGES.map(s => {
@@ -287,12 +287,12 @@ function EventCard({ ev, stageIdx, onCard, onMove }) {
 }
 
 // ─── Clients ──────────────────────────────────────────────────────────────────
-function Clients({ clients, events, payments, onNew, onEdit }) {
+function Clients({ clients, events, onNew, onEdit }) {
   const [search, setSearch] = useState("");
   const filtered = clients.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.company.toLowerCase().includes(search.toLowerCase()) ||
-    c.email.toLowerCase().includes(search.toLowerCase())
+    (c.company || "").toLowerCase().includes(search.toLowerCase()) ||
+    (c.email || "").toLowerCase().includes(search.toLowerCase())
   );
   return (
     <div>
@@ -352,18 +352,14 @@ function Clients({ clients, events, payments, onNew, onEdit }) {
 function Pagos({ events, payments, onAdd, onDelete }) {
   const [showForm, setShowForm] = useState(false);
   const [filterEv, setFilterEv] = useState("all");
-
-  const cobrado  = payments.filter(p => p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
+  const cobrado   = payments.filter(p => p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
   const pendiente = payments.filter(p => p.status === "Pendiente").reduce((s, p) => s + p.amount, 0);
-  const vencido  = payments.filter(p => p.status === "Vencido").reduce((s, p) => s + p.amount, 0);
-
-  const filtered = filterEv === "all" ? payments : payments.filter(p => p.eventId === parseInt(filterEv));
-
+  const vencido   = payments.filter(p => p.status === "Vencido").reduce((s, p) => s + p.amount, 0);
+  const filtered  = filterEv === "all" ? payments : payments.filter(p => p.eventId === parseInt(filterEv));
   const evProgress = events.filter(e => e.amount > 0).map(ev => {
     const paid = payments.filter(p => p.eventId === ev.id && p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
     return { ...ev, paid };
   });
-
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
@@ -373,12 +369,11 @@ function Pagos({ events, payments, onAdd, onDelete }) {
         </div>
         <button type="button" onClick={() => setShowForm(true)} style={S.btnP}>+ Registrar pago</button>
       </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "0.875rem", marginBottom: "1.75rem" }}>
         {[
-          { lbl: "Total cobrado",  val: fmtARS(cobrado),   color: "#34D399" },
-          { lbl: "Pendiente",      val: fmtARS(pendiente), color: GOLD },
-          { lbl: "Vencido",        val: fmtARS(vencido),   color: "#D05050" },
+          { lbl: "Total cobrado", val: fmtARS(cobrado),   color: "#34D399" },
+          { lbl: "Pendiente",     val: fmtARS(pendiente), color: GOLD },
+          { lbl: "Vencido",       val: fmtARS(vencido),   color: "#D05050" },
         ].map((s, i) => (
           <div key={i} style={S.card}>
             <div style={S.lbl}>{s.lbl}</div>
@@ -386,7 +381,6 @@ function Pagos({ events, payments, onAdd, onDelete }) {
           </div>
         ))}
       </div>
-
       <div style={{ ...S.card, marginBottom: "1.5rem" }}>
         <div style={{ fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6A6055", marginBottom: "1rem" }}>Progreso de cobro por evento</div>
         {evProgress.length === 0 && <div style={{ color: "#4A4540", fontSize: "0.875rem" }}>Sin eventos con monto asignado</div>}
@@ -405,30 +399,26 @@ function Pagos({ events, payments, onAdd, onDelete }) {
           );
         })}
       </div>
-
       <div style={{ marginBottom: "1rem" }}>
         <select value={filterEv} onChange={e => setFilterEv(e.target.value)} style={{ ...S.inp, width: 240 }}>
           <option value="all">Todos los eventos</option>
           {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
         </select>
       </div>
-
       <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: "1px solid #1A1A1A" }}>
-              {["Evento / Cliente", "Concepto", "Monto", "Método", "Fecha", "Estado", ""].map(h => (
+              {["Evento / Cliente","Concepto","Monto","Método","Fecha","Estado",""].map(h => (
                 <th key={h} style={{ padding: "0.7rem 1rem", textAlign: "left", fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#454035", fontWeight: 500 }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 && (
-              <tr><td colSpan={7} style={{ padding: "2rem", textAlign: "center", color: "#4A4540", fontSize: "0.875rem" }}>Sin pagos registrados</td></tr>
-            )}
+            {filtered.length === 0 && <tr><td colSpan={7} style={{ padding: "2rem", textAlign: "center", color: "#4A4540", fontSize: "0.875rem" }}>Sin pagos registrados</td></tr>}
             {filtered.map(p => {
               const ev = events.find(e => e.id === p.eventId);
-              const sc2 = p.status === "Pagado" ? "#34D399" : p.status === "Vencido" ? "#D05050" : GOLD;
+              const col = p.status === "Pagado" ? "#34D399" : p.status === "Vencido" ? "#D05050" : GOLD;
               return (
                 <tr key={p.id} style={{ borderBottom: "1px solid #161616" }}
                   onMouseEnter={e => e.currentTarget.style.background = "#121212"}
@@ -442,7 +432,7 @@ function Pagos({ events, payments, onAdd, onDelete }) {
                   <td style={{ padding: "0.875rem 1rem", fontSize: "0.8rem", color: "#7A7068" }}>{p.method}</td>
                   <td style={{ padding: "0.875rem 1rem", fontSize: "0.8rem", color: "#7A7068" }}>{fmtD(p.date)}</td>
                   <td style={{ padding: "0.875rem 1rem" }}>
-                    <span style={{ fontSize: "0.65rem", padding: "2px 9px", borderRadius: 12, background: `${sc2}18`, color: sc2 }}>{p.status}</span>
+                    <span style={{ fontSize: "0.65rem", padding: "2px 9px", borderRadius: 12, background: `${col}18`, color: col }}>{p.status}</span>
                   </td>
                   <td style={{ padding: "0.875rem 1rem" }}>
                     <button type="button" onClick={() => onDelete(p.id)} style={{ ...S.btnS, padding: "0.3rem 0.6rem", fontSize: "0.72rem", color: "#D05050", borderColor: "rgba(208,80,80,0.25)" }}>×</button>
@@ -453,7 +443,6 @@ function Pagos({ events, payments, onAdd, onDelete }) {
           </tbody>
         </table>
       </div>
-
       {showForm && <PaymentForm events={events} onSave={d => { onAdd(d); setShowForm(false); }} onClose={() => setShowForm(false)} />}
     </div>
   );
@@ -516,19 +505,17 @@ function PostVenta({ events, postventas, onSave }) {
   const withRating = postventas.filter(p => p.rating > 0);
   const avg = withRating.length ? (withRating.reduce((s, p) => s + p.rating, 0) / withRating.length).toFixed(1) : "—";
   const refer = postventas.filter(p => p.wouldRefer === "Sí").length;
-
   return (
     <div>
       <div style={{ marginBottom: "2rem" }}>
         <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2.25rem", fontWeight: 600, color: "#F0EAD8", margin: 0 }}>Post-venta</h1>
         <div style={{ color: "#555045", fontSize: "0.78rem", marginTop: 2 }}>{pvEvents.length} eventos completados</div>
       </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "0.875rem", marginBottom: "1.75rem" }}>
         {[
-          { lbl: "Eventos completados", val: pvEvents.length, sub: "post-venta" },
+          { lbl: "Eventos completados",   val: pvEvents.length, sub: "post-venta" },
           { lbl: "Satisfacción promedio", val: avg === "—" ? "—" : `${avg} / 5`, sub: "rating", gold: true },
-          { lbl: "Recomendarían", val: refer, sub: "clientes" },
+          { lbl: "Recomendarían",         val: refer, sub: "clientes" },
         ].map((s, i) => (
           <div key={i} style={S.card}>
             <div style={S.lbl}>{s.lbl}</div>
@@ -537,13 +524,11 @@ function PostVenta({ events, postventas, onSave }) {
           </div>
         ))}
       </div>
-
       {pvEvents.length === 0 && (
         <div style={{ ...S.card, textAlign: "center", color: "#4A4540", fontSize: "0.875rem", padding: "2.5rem" }}>
-          Ningún evento ha llegado a Post-venta aún. Avanzá eventos desde el Pipeline.
+          Ningún evento en Post-venta aún. Avanzá eventos desde el Pipeline.
         </div>
       )}
-
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "1rem" }}>
         {pvEvents.map(ev => {
           const pv = postventas.find(p => p.eventId === ev.id) || {};
@@ -555,7 +540,6 @@ function PostVenta({ events, postventas, onSave }) {
                 <div style={{ fontSize: "0.72rem", color: "#555045" }}>{ev.clientName} · {fmtD(ev.date)} · {ev.guests} pers.</div>
               </div>
               {ev.amount > 0 && <div style={{ fontSize: "0.8rem", color: GOLD, marginBottom: "0.875rem" }}>{fmtARS(ev.amount)}</div>}
-
               <div style={{ marginBottom: "0.75rem" }}>
                 <div style={S.lbl}>Satisfacción del cliente</div>
                 <div style={{ display: "flex", gap: 6 }}>
@@ -565,7 +549,6 @@ function PostVenta({ events, postventas, onSave }) {
                   ))}
                 </div>
               </div>
-
               <div style={{ marginBottom: "0.75rem" }}>
                 <div style={{ ...S.lbl, marginBottom: "0.5rem" }}>¿Recomendaría?</div>
                 <div style={{ display: "flex", gap: "0.5rem" }}>
@@ -581,13 +564,10 @@ function PostVenta({ events, postventas, onSave }) {
                   })}
                 </div>
               </div>
-
               <div>
                 <div style={S.lbl}>Testimonio / notas</div>
-                <textarea value={pv.testimonial || ""}
-                  onChange={e => update({ testimonial: e.target.value })}
-                  style={{ ...S.inp, minHeight: 65, resize: "vertical", fontSize: "0.8rem" }}
-                  placeholder="Comentarios del cliente..." />
+                <textarea value={pv.testimonial || ""} onChange={e => update({ testimonial: e.target.value })}
+                  style={{ ...S.inp, minHeight: 65, resize: "vertical", fontSize: "0.8rem" }} placeholder="Comentarios del cliente..." />
               </div>
             </div>
           );
@@ -601,35 +581,23 @@ function PostVenta({ events, postventas, onSave }) {
 function PyL({ events, payments, costs, onAddCost, onDeleteCost }) {
   const [showForm, setShowForm] = useState(false);
   const [period, setPeriod] = useState("all");
-
-  const months = useMemo(() => {
-    const all = events.map(e => e.date?.slice(0,7)).filter(Boolean);
-    return [...new Set(all)].sort().reverse();
-  }, [events]);
-
+  const months = useMemo(() => [...new Set(events.map(e => e.date?.slice(0,7)).filter(Boolean))].sort().reverse(), [events]);
   const filteredEvIds = useMemo(() => {
     if (period === "all") return new Set(events.map(e => e.id));
     return new Set(events.filter(e => e.date?.slice(0,7) === period).map(e => e.id));
   }, [events, period]);
-
-  const revenue   = events.filter(e => filteredEvIds.has(e.id) && ["Confirmación","Evento","Post-venta"].includes(e.stage)).reduce((s, e) => s + e.amount, 0);
-  const collected = payments.filter(p => filteredEvIds.has(p.eventId) && p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
+  const revenue    = events.filter(e => filteredEvIds.has(e.id) && ["Confirmación","Evento","Post-venta"].includes(e.stage)).reduce((s, e) => s + e.amount, 0);
+  const collected  = payments.filter(p => filteredEvIds.has(p.eventId) && p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
   const totalCosts = costs.filter(c => !c.eventId || filteredEvIds.has(c.eventId)).reduce((s, c) => s + c.amount, 0);
   const gross  = revenue - totalCosts;
   const margin = revenue > 0 ? ((gross / revenue) * 100).toFixed(1) : "—";
-
-  const byCat = COST_CATS.map(cat => ({
-    cat,
-    total: costs.filter(c => c.category === cat && (!c.eventId || filteredEvIds.has(c.eventId))).reduce((s, c) => s + c.amount, 0),
-  })).filter(x => x.total > 0);
-
+  const byCat = COST_CATS.map(cat => ({ cat, total: costs.filter(c => c.category === cat && (!c.eventId || filteredEvIds.has(c.eventId))).reduce((s, c) => s + c.amount, 0) })).filter(x => x.total > 0);
   const chartData = months.slice(0, 6).reverse().map(m => {
     const rev  = events.filter(e => e.date?.slice(0,7) === m && ["Confirmación","Evento","Post-venta"].includes(e.stage)).reduce((s, e) => s + e.amount, 0);
     const cost = costs.filter(c => c.date?.slice(0,7) === m).reduce((s, c) => s + c.amount, 0);
     return { m, rev, cost };
   });
   const maxVal = Math.max(...chartData.map(d => Math.max(d.rev, d.cost)), 1);
-
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
@@ -645,7 +613,6 @@ function PyL({ events, payments, costs, onAddCost, onDeleteCost }) {
           <button type="button" onClick={() => setShowForm(true)} style={S.btnP}>+ Registrar costo</button>
         </div>
       </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "0.875rem", marginBottom: "1.75rem" }}>
         {[
           { lbl: "Revenue confirmado", val: fmtARS(revenue),    color: "#34D399" },
@@ -660,7 +627,6 @@ function PyL({ events, payments, costs, onAddCost, onDeleteCost }) {
           </div>
         ))}
       </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: "1.125rem", marginBottom: "1.5rem" }}>
         <div style={S.card}>
           <div style={{ fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6A6055", marginBottom: "1.25rem" }}>Revenue vs Costos por mes</div>
@@ -668,24 +634,19 @@ function PyL({ events, payments, costs, onAddCost, onDeleteCost }) {
           <div style={{ display: "flex", gap: "0.625rem", alignItems: "flex-end", height: 120 }}>
             {chartData.map(d => (
               <div key={d.m} style={{ flex: 1, display: "flex", gap: 3, alignItems: "flex-end", height: "100%" }}>
-                <div title={`Revenue: ${fmtARS(d.rev)}`}
-                  style={{ flex: 1, height: `${Math.round((d.rev / maxVal) * 100)}%`, minHeight: d.rev > 0 ? 4 : 0, background: "rgba(52,211,153,0.45)", borderRadius: "3px 3px 0 0" }} />
-                <div title={`Costos: ${fmtARS(d.cost)}`}
-                  style={{ flex: 1, height: `${Math.round((d.cost / maxVal) * 100)}%`, minHeight: d.cost > 0 ? 4 : 0, background: "rgba(208,80,80,0.45)", borderRadius: "3px 3px 0 0" }} />
+                <div title={`Revenue: ${fmtARS(d.rev)}`} style={{ flex: 1, height: `${Math.round((d.rev/maxVal)*100)}%`, minHeight: d.rev > 0 ? 4 : 0, background: "rgba(52,211,153,0.45)", borderRadius: "3px 3px 0 0" }} />
+                <div title={`Costos: ${fmtARS(d.cost)}`} style={{ flex: 1, height: `${Math.round((d.cost/maxVal)*100)}%`, minHeight: d.cost > 0 ? 4 : 0, background: "rgba(208,80,80,0.45)", borderRadius: "3px 3px 0 0" }} />
               </div>
             ))}
           </div>
           <div style={{ display: "flex", gap: "0.625rem", marginTop: "0.5rem" }}>
-            {chartData.map(d => (
-              <div key={d.m} style={{ flex: 1, textAlign: "center", fontSize: "0.58rem", color: "#454035" }}>{d.m.slice(5)}</div>
-            ))}
+            {chartData.map(d => <div key={d.m} style={{ flex: 1, textAlign: "center", fontSize: "0.58rem", color: "#454035" }}>{d.m.slice(5)}</div>)}
           </div>
           <div style={{ display: "flex", gap: "1.25rem", marginTop: "0.75rem" }}>
             <span style={{ fontSize: "0.68rem", color: "#34D399" }}>■ Revenue</span>
             <span style={{ fontSize: "0.68rem", color: "#D05050" }}>■ Costos</span>
           </div>
         </div>
-
         <div style={S.card}>
           <div style={{ fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6A6055", marginBottom: "1.125rem" }}>Costos por categoría</div>
           {byCat.length === 0 && <div style={{ color: "#4A4540", fontSize: "0.875rem" }}>Sin costos registrados</div>}
@@ -703,10 +664,9 @@ function PyL({ events, payments, costs, onAddCost, onDeleteCost }) {
           )}
         </div>
       </div>
-
       <div style={S.card}>
         <div style={{ fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6A6055", marginBottom: "1rem" }}>Detalle de costos</div>
-        {costs.length === 0 && <div style={{ color: "#4A4540", fontSize: "0.875rem" }}>Sin costos registrados. Usá "+ Registrar costo" para agregar.</div>}
+        {costs.length === 0 && <div style={{ color: "#4A4540", fontSize: "0.875rem" }}>Sin costos registrados.</div>}
         {costs.map(c => {
           const ev = events.find(e => e.id === c.eventId);
           return (
@@ -721,7 +681,6 @@ function PyL({ events, payments, costs, onAddCost, onDeleteCost }) {
           );
         })}
       </div>
-
       {showForm && <CostForm events={events} onSave={d => { onAddCost(d); setShowForm(false); }} onClose={() => setShowForm(false)} />}
     </div>
   );
@@ -766,7 +725,7 @@ function CostForm({ events, onSave, onClose }) {
   );
 }
 
-// ─── Event Detail Modal ───────────────────────────────────────────────────────
+// ─── Event modals ─────────────────────────────────────────────────────────────
 function EventDetail({ ev, onEdit, onMove, onDelete, onClose }) {
   const [confirmDel, setConfirmDel] = useState(false);
   const idx = si(ev.stage);
@@ -829,10 +788,7 @@ function EventDetail({ ev, onEdit, onMove, onDelete, onClose }) {
 }
 
 function EventForm({ ev, clients, onSave, onClose }) {
-  const [f, setF] = useState(ev ? { ...ev } : {
-    clientId: "", clientName: "", title: "", type: "Cumpleaños",
-    date: "", guests: "", stage: "Consulta", amount: "", notes: "",
-  });
+  const [f, setF] = useState(ev ? { ...ev } : { clientId: "", clientName: "", title: "", type: "Cumpleaños", date: "", guests: "", stage: "Consulta", amount: "", notes: "" });
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
   const pickClient = id => {
     const c = clients.find(c => c.id === parseInt(id));
@@ -931,40 +887,115 @@ function ClientForm({ client, onSave, onClose }) {
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [view, setView] = useState("dashboard");
-  const [clients,    setClients]    = useLocalStorage("s69_clients",    INIT_CLIENTS);
-  const [events,     setEvents]     = useLocalStorage("s69_events",     INIT_EVENTS);
-  const [payments,   setPayments]   = useLocalStorage("s69_payments",   []);
-  const [costs,      setCosts]      = useLocalStorage("s69_costs",      []);
-  const [postventas, setPostventas] = useLocalStorage("s69_postventas", []);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+
+  const [clients,    setClients]    = useState([]);
+  const [events,     setEvents]     = useState([]);
+  const [payments,   setPayments]   = useState([]);
+  const [costs,      setCosts]      = useState([]);
+  const [postventas, setPostventas] = useState([]);
 
   const [eventModal,  setEventModal]  = useState(null);
   const [clientModal, setClientModal] = useState(null);
   const [detailEvent, setDetailEvent] = useState(null);
 
-  const addEvent     = ev => setEvents(p => [...p, { ...ev, id: nextId(p) }]);
-  const updateEvent  = ev => setEvents(p => p.map(e => e.id === ev.id ? ev : e));
-  const deleteEvent  = id => { setEvents(p => p.filter(e => e.id !== id)); setDetailEvent(null); };
-  const moveStage    = (ev, dir) => { const next = STAGES[si(ev.stage) + dir]; if (next) updateEvent({ ...ev, stage: next }); };
-  const addClient    = cl => setClients(p => [...p, { ...cl, id: nextId(p) }]);
-  const updateClient = cl => setClients(p => p.map(c => c.id === cl.id ? cl : c));
+  useEffect(() => {
+    sheetsGet()
+      .then(data => {
+        if (data.clientes?.length)    setClients(data.clientes.map(parseClient));
+        if (data.eventos?.length)     setEvents(data.eventos.map(parseEvent));
+        if (data.pagos?.length)       setPayments(data.pagos.map(parsePayment));
+        if (data.costos?.length)      setCosts(data.costos.map(parseCost));
+        if (data.postventas?.length)  setPostventas(data.postventas.map(parsePostventa));
+        setLoading(false);
+      })
+      .catch(err => { setLoadError(err.message); setLoading(false); });
+  }, []);
 
-  const addPayment    = p  => setPayments(prev => [...prev, { ...p, id: nextId(prev) }]);
-  const deletePayment = id => setPayments(prev => prev.filter(p => p.id !== id));
-  const addCost       = c  => setCosts(prev => [...prev, { ...c, id: nextId(prev) }]);
-  const deleteCost    = id => setCosts(prev => prev.filter(c => c.id !== id));
-  const savePostventa = pv => setPostventas(prev => {
-    const exists = prev.find(p => p.eventId === pv.eventId);
-    return exists ? prev.map(p => p.eventId === pv.eventId ? pv : p) : [...prev, pv];
-  });
+  const sync = (action, sheet, data, id) => {
+    setSyncing(true);
+    sheetsPost({ action, sheet, data, id }).finally(() => setSyncing(false));
+  };
+
+  const addEvent = ev => {
+    const n = { ...ev, id: nextId(events) };
+    setEvents(p => [...p, n]);
+    sync("add", "Eventos", n);
+  };
+  const updateEvent = ev => {
+    setEvents(p => p.map(e => e.id === ev.id ? ev : e));
+    sync("update", "Eventos", ev);
+  };
+  const deleteEvent = id => {
+    setEvents(p => p.filter(e => e.id !== id));
+    setDetailEvent(null);
+    sync("delete", "Eventos", null, id);
+  };
+  const moveStage = (ev, dir) => {
+    const next = STAGES[si(ev.stage) + dir];
+    if (next) updateEvent({ ...ev, stage: next });
+  };
+  const addClient = cl => {
+    const n = { ...cl, id: nextId(clients) };
+    setClients(p => [...p, n]);
+    sync("add", "Clientes", n);
+  };
+  const updateClient = cl => {
+    setClients(p => p.map(c => c.id === cl.id ? cl : c));
+    sync("update", "Clientes", cl);
+  };
+  const addPayment = p => {
+    const n = { ...p, id: nextId(payments) };
+    setPayments(prev => [...prev, n]);
+    sync("add", "Pagos", n);
+  };
+  const deletePayment = id => {
+    setPayments(p => p.filter(x => x.id !== id));
+    sync("delete", "Pagos", null, id);
+  };
+  const addCost = c => {
+    const n = { ...c, id: nextId(costs) };
+    setCosts(prev => [...prev, n]);
+    sync("add", "Costos", n);
+  };
+  const deleteCost = id => {
+    setCosts(p => p.filter(x => x.id !== id));
+    sync("delete", "Costos", null, id);
+  };
+  const savePostventa = pv => {
+    setPostventas(prev => {
+      const exists = prev.find(p => p.eventId === pv.eventId);
+      return exists ? prev.map(p => p.eventId === pv.eventId ? pv : p) : [...prev, pv];
+    });
+    sync("upsert", "Postventas", pv);
+  };
+
+  if (loading) return (
+    <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "#0A0A0A", flexDirection: "column", gap: "1rem" }}>
+      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2rem", color: GOLD }}>Standard 69</div>
+      <div style={{ fontSize: "0.75rem", color: "#555045", letterSpacing: "0.1em" }}>Cargando datos desde Google Sheets...</div>
+    </div>
+  );
+
+  if (loadError) return (
+    <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "#0A0A0A", flexDirection: "column", gap: "1rem", padding: "2rem" }}>
+      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2rem", color: "#D05050" }}>Error de conexión</div>
+      <div style={{ fontSize: "0.8rem", color: "#555045", maxWidth: 420, textAlign: "center" }}>
+        No se pudo conectar a Google Sheets. Verificá que la URL del script sea correcta en <code style={{ color: GOLD }}>SCRIPT_URL</code> (App.jsx línea 4).
+      </div>
+      <div style={{ fontSize: "0.72rem", color: "#3A3530", fontFamily: "monospace" }}>{loadError}</div>
+    </div>
+  );
 
   return (
     <div style={{ display: "flex", height: "100vh", background: "#0A0A0A", fontFamily: "'DM Sans',sans-serif", color: "#F0EAD8" }}>
-      <Sidebar view={view} setView={setView} events={events} payments={payments} />
-
+      <Sidebar view={view} setView={setView} events={events} payments={payments} syncing={syncing} />
       <main style={{ flex: 1, overflowY: "auto", padding: "2rem", minWidth: 0 }}>
         {view === "dashboard" && <Dashboard events={events} clients={clients} payments={payments} costs={costs} setView={setView} setDetailEvent={setDetailEvent} />}
         {view === "pipeline"  && <Pipeline  events={events} onMove={moveStage} onCard={setDetailEvent} onNew={() => setEventModal("new")} />}
-        {view === "clients"   && <Clients   clients={clients} events={events} payments={payments} onNew={() => setClientModal("new")} onEdit={setClientModal} />}
+        {view === "clients"   && <Clients   clients={clients} events={events} onNew={() => setClientModal("new")} onEdit={setClientModal} />}
         {view === "pagos"     && <Pagos     events={events} payments={payments} onAdd={addPayment} onDelete={deletePayment} />}
         {view === "postventa" && <PostVenta events={events} postventas={postventas} onSave={savePostventa} />}
         {view === "pyl"       && <PyL       events={events} payments={payments} costs={costs} onAddCost={addCost} onDeleteCost={deleteCost} />}
