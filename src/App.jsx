@@ -3,16 +3,26 @@ import { useState, useEffect, useMemo } from "react";
 // ─── Google Sheets API ────────────────────────────────────────────────────────
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCEuPro2M5gKImueRdnUr4kfCnyvy_qO_UYza2EzsipiFu0qvlSDx4X7HYes7FtJaHZQ/exec";
 
+function xhr(url, options = {}) {
+  return new Promise((resolve, reject) => {
+    const req = new XMLHttpRequest();
+    req.open(options.method || "GET", url, true);
+    req.timeout = 20000;
+    req.onload  = () => { try { resolve(JSON.parse(req.responseText)); } catch(e) { reject(new Error("JSON inválido")); } };
+    req.onerror = () => reject(new Error("Error de red"));
+    req.ontimeout = () => reject(new Error("Timeout — verificá tu conexión"));
+    options.body ? req.send(options.body) : req.send();
+  });
+}
+
 async function sheetsGet() {
-  const res = await fetch(SCRIPT_URL, { redirect: "follow" });
-  const json = await res.json();
+  const json = await xhr(`${SCRIPT_URL}?t=${Date.now()}`);
   if (!json.ok) throw new Error(json.error);
   return json.data;
 }
 
 async function sheetsPost(body) {
-  const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(body), redirect: "follow" });
-  const json = await res.json();
+  const json = await xhr(SCRIPT_URL, { method: "POST", body: JSON.stringify(body) });
   if (!json.ok) throw new Error(json.error);
   return json.data;
 }
