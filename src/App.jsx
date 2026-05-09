@@ -27,11 +27,21 @@ async function sheetsPost(body) {
   return json.data;
 }
 
-const toNum = v => (v === "" || v == null) ? null : Number(v);
+const toNum  = v => (v === "" || v == null) ? null : Number(v);
+const toDate = v => {
+  if (!v) return "";
+  const s = String(v);
+  if (s.includes("T")) return s.slice(0, 10);   // "2025-06-15T03:00:00Z" → "2025-06-15"
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;  // ya es YYYY-MM-DD
+  // Intentar parsear fechas de otro formato
+  const d = new Date(s);
+  if (!isNaN(d)) return d.toISOString().slice(0, 10);
+  return "";
+};
 const parseClient    = r => ({ ...r, id: toNum(r.id) });
-const parseEvent     = r => ({ ...r, id: toNum(r.id), clientId: toNum(r.clientId), guests: toNum(r.guests), amount: toNum(r.amount) });
-const parsePayment   = r => ({ ...r, id: toNum(r.id), eventId: toNum(r.eventId), amount: toNum(r.amount) });
-const parseCost      = r => ({ ...r, id: toNum(r.id), eventId: r.eventId ? toNum(r.eventId) : null, amount: toNum(r.amount) });
+const parseEvent     = r => ({ ...r, id: toNum(r.id), clientId: toNum(r.clientId), guests: toNum(r.guests), amount: toNum(r.amount), date: toDate(r.date) });
+const parsePayment   = r => ({ ...r, id: toNum(r.id), eventId: toNum(r.eventId), amount: toNum(r.amount), date: toDate(r.date) });
+const parseCost      = r => ({ ...r, id: toNum(r.id), eventId: r.eventId ? toNum(r.eventId) : null, amount: toNum(r.amount), date: toDate(r.date) });
 const parsePostventa = r => ({ ...r, eventId: toNum(r.eventId), rating: toNum(r.rating) });
 
 // ─── Constants ────────────────────────────────────────────────────────────────
