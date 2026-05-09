@@ -177,6 +177,7 @@ const NAV = [
   { id: "pagos",       label: "Pagos",       sym: "◈" },
   { id: "postventa",   label: "Post-venta",  sym: "◇" },
   { id: "pyl",         label: "P & L",       sym: "◬" },
+  { id: "marketing",   label: "Marketing",   sym: "◐" },
 ];
 
 function Sidebar({ view, setView, events, payments, syncing, user, onLogout }) {
@@ -1217,26 +1218,28 @@ function generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, lineas }) 
   const FOOTER = `S T A N D A R D  6 9 &nbsp;·&nbsp; V I L L A  W A R C A L D E &nbsp;·&nbsp; C Ó R D O B A`;
   const FOOTER_FULL = `${FOOTER} &nbsp;·&nbsp; A D M S T A N D A R D 6 9 W @ G M A I L . C O M &nbsp;·&nbsp; + 5 4 9 3 5 1 8 1 4 - 7 3 7 3`;
 
+  const BASE = "https://standard69-crm.vercel.app";
+
   const css = `@page{size:A4;margin:0}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#2a2520;font-size:13px}.page{width:210mm;min-height:297mm;position:relative;background:#F5F0E8;page-break-after:always;overflow:hidden}.ft{position:absolute;bottom:0;left:0;right:0;background:#1a1a18;color:#888;font-size:7.5px;letter-spacing:.18em;text-transform:uppercase;text-align:center;padding:11px 20px}
-/* P1 cover */.p1{display:flex;flex-direction:column;align-items:center;padding:40px 40px 50px}.p1-logo{font-size:2.2rem;letter-spacing:.38em;text-transform:uppercase;font-weight:400;margin-bottom:4px}.p1-logo sup{font-size:1.4rem;font-style:italic;font-family:Georgia,serif;letter-spacing:-.02em}.p1-img{width:100%;height:300px;background:linear-gradient(135deg,#2a2520,#1a1a18 50%,#3a3020);border-radius:3px;display:flex;align-items:center;justify-content:center;margin:30px 0 14px}.p1-sub{display:flex;gap:12px;width:100%}.p1-sub-img{flex:1;height:185px;background:linear-gradient(135deg,#3a3530,#2a2520);border-radius:3px;display:flex;align-items:center;justify-content:center}.ph{color:#4a4035;font-size:8px;letter-spacing:.12em;text-transform:uppercase}
-/* P2 event info */.p2-img{width:100%;height:270px;background:linear-gradient(135deg,#2a2520,#1a1a18 55%,#3a3028);display:flex;align-items:center;justify-content:center}.p2-logo{text-align:center;padding:36px 0 28px;font-size:1.5rem;letter-spacing:.38em;text-transform:uppercase;font-weight:400}.p2-logo sup{font-size:.95rem;font-style:italic;font-family:Georgia,serif;letter-spacing:-.02em}.info-t{width:76%;margin:0 auto;border:1px solid #ccc;border-collapse:collapse}.info-t tr{border-bottom:1px solid #ddd}.info-t td{padding:14px 18px;font-size:12.5px}.info-t td:first-child{color:#8a8580;width:40%}.info-t td:last-child{background:#2a2520;color:#EDE8DF}
+/* P1 cover */.p1{display:flex;flex-direction:column;align-items:center;padding:36px 40px 50px}.p1-logo{margin-bottom:4px;text-align:center}.p1-logo img{height:42px;display:block;margin:0 auto}.p1-img{width:100%;height:310px;border-radius:3px;overflow:hidden;margin:28px 0 12px}.p1-img img{width:100%;height:100%;object-fit:cover;display:block}.p1-sub{display:flex;gap:12px;width:100%}.p1-sub-img{flex:1;height:188px;border-radius:3px;overflow:hidden}.p1-sub-img img{width:100%;height:100%;object-fit:cover;display:block}
+/* P2 event info */.p2-img{width:100%;height:270px;overflow:hidden}.p2-img img{width:100%;height:100%;object-fit:cover;display:block}.p2-logo{text-align:center;padding:32px 0 24px}.p2-logo img{height:36px;display:block;margin:0 auto}.info-t{width:76%;margin:0 auto;border:1px solid #ccc;border-collapse:collapse}.info-t tr{border-bottom:1px solid #ddd}.info-t td{padding:14px 18px;font-size:12.5px}.info-t td:first-child{color:#8a8580;width:40%}.info-t td:last-child{background:#2a2520;color:#EDE8DF}
 /* P3 menu */.p3{padding:48px 46px 56px}.p3-ttl{text-align:center;font-size:1.25rem;font-weight:400;margin-bottom:7px}.gline{width:30px;height:1.5px;background:#c8a870;margin:0 auto 32px}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:28px}.sec{margin-bottom:18px}.sec-lbl{font-size:7.5px;letter-spacing:.18em;text-transform:uppercase;color:#2a2520;font-weight:700;margin-bottom:5px}.sec-hr{border:none;border-top:1px solid #d0c8bc;margin-bottom:9px}.sec-ul{list-style:disc;padding-left:15px}.sec-ul li{margin-bottom:6px;font-size:11.5px;line-height:1.45}.sec-nota{font-size:10px;font-style:italic;color:#8a7a6a;margin-top:5px}
 /* P4 budget */.p4{padding:48px 58px 56px}.p4-ttl{text-align:center;font-size:1.5rem;font-weight:400;letter-spacing:.08em;margin-bottom:7px}.bgt{width:100%;border-collapse:collapse;margin-top:26px}.bgt thead tr{background:#2a2520}.bgt thead th{color:#bbb;font-size:8px;letter-spacing:.16em;text-transform:uppercase;padding:13px 20px;font-weight:400;text-align:center}.b-svc{padding:17px 20px;text-align:center;font-size:13px;border-bottom:1px solid #ddd5c8}.b-val{padding:17px 20px;text-align:center;font-size:13px;border-bottom:1px solid #ddd5c8;border-left:1px solid #ddd5c8}.tot td{background:#2a2520;color:#EDE8DF;font-size:13px;padding:15px 20px;text-align:center;font-weight:500;letter-spacing:.08em}.pago{text-align:center;margin-top:52px}.pago-ttl{font-size:1.05rem;font-weight:400;margin-bottom:7px}.pago-line{font-size:11px;color:#6a6560;margin-bottom:4px}
 @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Propuesta · ${ev.title}</title><style>${css}</style></head><body>
 <div class="page p1">
-  <div class="p1-logo">STANDARD<sup>69</sup></div>
-  <div class="p1-img"><span class="ph">Villa Warcalde · Córdoba</span></div>
+  <div class="p1-logo"><img src="${BASE}/logo.png" alt="Standard 69"></div>
+  <div class="p1-img"><img src="${BASE}/foto_portada.jpg" alt=""></div>
   <div class="p1-sub">
-    <div class="p1-sub-img"><span class="ph">Espacio exterior</span></div>
-    <div class="p1-sub-img"><span class="ph">Servicio</span></div>
+    <div class="p1-sub-img"><img src="${BASE}/foto_jardin.jpg" alt=""></div>
+    <div class="p1-sub-img"><img src="${BASE}/foto_mozo.jpg" alt=""></div>
   </div>
   <div class="ft">${FOOTER}</div>
 </div>
 <div class="page">
-  <div class="p2-img"><span class="ph" style="color:#4a4035">Standard 69</span></div>
-  <div class="p2-logo">STANDARD<sup>69</sup></div>
+  <div class="p2-img"><img src="${BASE}/foto_brindis.jpg" alt=""></div>
+  <div class="p2-logo"><img src="${BASE}/logo.png" alt="Standard 69"></div>
   <table class="info-t">
     <tr><td>Tipo de evento</td><td>${ev.type || ev.title || ""}</td></tr>
     <tr><td>Fecha del evento</td><td style="text-transform:capitalize">${fechaLarga}</td></tr>
@@ -1274,7 +1277,11 @@ function generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, lineas }) 
   const w = window.open("", "_blank");
   w.document.write(html);
   w.document.close();
-  setTimeout(() => w.print(), 800);
+  const imgs = w.document.querySelectorAll("img");
+  if (!imgs.length) { setTimeout(() => w.print(), 500); return; }
+  let loaded = 0;
+  const tryPrint = () => { if (++loaded >= imgs.length) setTimeout(() => w.print(), 400); };
+  imgs.forEach(img => { if (img.complete) tryPrint(); else { img.onload = tryPrint; img.onerror = tryPrint; } });
 }
 
 function PropuestaModal({ ev, onClose }) {
@@ -2091,6 +2098,309 @@ function PersonalModule({ personal, onAdd, onUpdate, onDelete }) {
   );
 }
 
+// ─── Marketing ────────────────────────────────────────────────────────────────
+const PLATFORMS = ["Meta Ads", "LinkedIn"];
+const MKT_OBJECTIVES = ["Reconocimiento", "Tráfico", "Leads", "Conversiones", "Interacción"];
+const PLATFORM_COLORS = {
+  "Meta Ads":  { primary: "#1877F2", bg: "rgba(24,119,242,0.10)", bd: "rgba(24,119,242,0.25)" },
+  "LinkedIn":  { primary: "#0A66C2", bg: "rgba(10,102,194,0.10)", bd: "rgba(10,102,194,0.25)" },
+};
+
+const parseMarketing = r => ({
+  ...r,
+  id: toNum(r.id),
+  budget: toNum(r.budget),
+  spent: toNum(r.spent),
+  impressions: toNum(r.impressions),
+  clicks: toNum(r.clicks),
+  leads: toNum(r.leads),
+  date: toDate(r.date),
+});
+
+function PlatformBadge({ platform }) {
+  const c = PLATFORM_COLORS[platform] || PLATFORM_COLORS["Meta Ads"];
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 20, background: c.bg, border: `1px solid ${c.bd}`, fontSize: "0.68rem", fontWeight: 500, color: c.primary }}>
+      {platform}
+    </span>
+  );
+}
+
+function MarketingForm({ initial, onSave, onClose }) {
+  const blank = { platform: "Meta Ads", campaign: "", objective: "Leads", date: todayStr().slice(0, 7) + "-01", budget: "", spent: "", impressions: "", clicks: "", leads: "", notes: "" };
+  const [f, setF] = useState(initial ? { ...blank, ...initial, budget: initial.budget ?? "", spent: initial.spent ?? "", impressions: initial.impressions ?? "", clicks: initial.clicks ?? "", leads: initial.leads ?? "" } : blank);
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+  const submit = () => {
+    if (!f.campaign.trim()) { alert("Ingresá el nombre de campaña."); return; }
+    if (!f.spent && f.spent !== 0) { alert("Ingresá el monto invertido."); return; }
+    onSave({
+      ...f,
+      budget: f.budget !== "" ? parseFloat(f.budget) : null,
+      spent: parseFloat(f.spent) || 0,
+      impressions: f.impressions !== "" ? parseInt(f.impressions) : null,
+      clicks: f.clicks !== "" ? parseInt(f.clicks) : null,
+      leads: f.leads !== "" ? parseInt(f.leads) : null,
+    });
+  };
+  return (
+    <Modal title={initial ? "Editar campaña" : "Nueva campaña"} onClose={onClose} wide>
+      <div style={{ display: "flex", gap: "1rem" }}>
+        <Field label="Plataforma" half>
+          <select value={f.platform} onChange={e => set("platform", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+            {PLATFORMS.map(p => <option key={p}>{p}</option>)}
+          </select>
+        </Field>
+        <Field label="Objetivo" half>
+          <select value={f.objective} onChange={e => set("objective", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+            {MKT_OBJECTIVES.map(o => <option key={o}>{o}</option>)}
+          </select>
+        </Field>
+      </div>
+      <Field label="Nombre de campaña *">
+        <input value={f.campaign} onChange={e => set("campaign", e.target.value)} style={S.inp} placeholder="Ej: Standard 69 — Eventos Corporativos Mayo" />
+      </Field>
+      <Field label="Período (mes)">
+        <input type="month" value={f.date?.slice(0, 7)} onChange={e => set("date", e.target.value + "-01")} style={S.inp} />
+      </Field>
+      <div style={{ display: "flex", gap: "1rem" }}>
+        <Field label="Presupuesto (ARS)" half>
+          <input type="number" value={f.budget} onChange={e => set("budget", e.target.value)} style={S.inp} placeholder="0" />
+        </Field>
+        <Field label="Invertido (ARS) *" half>
+          <input type="number" value={f.spent} onChange={e => set("spent", e.target.value)} style={S.inp} placeholder="0" />
+        </Field>
+      </div>
+      <div style={{ display: "flex", gap: "1rem" }}>
+        <Field label="Impresiones" half>
+          <input type="number" value={f.impressions} onChange={e => set("impressions", e.target.value)} style={S.inp} placeholder="0" />
+        </Field>
+        <Field label="Clics" half>
+          <input type="number" value={f.clicks} onChange={e => set("clicks", e.target.value)} style={S.inp} placeholder="0" />
+        </Field>
+      </div>
+      <Field label="Leads / Conversiones">
+        <input type="number" value={f.leads} onChange={e => set("leads", e.target.value)} style={S.inp} placeholder="0" />
+      </Field>
+      <Field label="Notas">
+        <input value={f.notes} onChange={e => set("notes", e.target.value)} style={S.inp} placeholder="Segmentación, creatividades, observaciones..." />
+      </Field>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.625rem", marginTop: "0.5rem" }}>
+        <button type="button" onClick={onClose} style={S.btnS}>Cancelar</button>
+        <button type="button" onClick={submit} style={S.btnP}>Guardar</button>
+      </div>
+    </Modal>
+  );
+}
+
+function Marketing({ marketing, onAdd, onUpdate, onDelete }) {
+  const [platform, setPlatform] = useState("Meta Ads");
+  const [form, setForm] = useState(null); // null | "new" | record object
+
+  const filtered = marketing.filter(r => r.platform === platform);
+  const all = marketing;
+
+  const totalSpent      = filtered.reduce((s, r) => s + (r.spent || 0), 0);
+  const totalLeads      = filtered.reduce((s, r) => s + (r.leads || 0), 0);
+  const totalClicks     = filtered.reduce((s, r) => s + (r.clicks || 0), 0);
+  const totalImpr       = filtered.reduce((s, r) => s + (r.impressions || 0), 0);
+  const cpl             = totalLeads > 0 ? totalSpent / totalLeads : null;
+  const ctr             = totalImpr > 0 ? (totalClicks / totalImpr) * 100 : null;
+  const totalSpentAll   = all.reduce((s, r) => s + (r.spent || 0), 0);
+
+  // Monthly chart data (all platforms combined, last 6 months)
+  const months = useMemo(() => {
+    const ms = [...new Set(all.map(r => r.date?.slice(0, 7)).filter(Boolean))].sort().slice(-6);
+    return ms;
+  }, [all]);
+
+  const chartData = months.map(m => ({
+    m,
+    meta: all.filter(r => r.date?.slice(0, 7) === m && r.platform === "Meta Ads").reduce((s, r) => s + (r.spent || 0), 0),
+    li:   all.filter(r => r.date?.slice(0, 7) === m && r.platform === "LinkedIn").reduce((s, r) => s + (r.spent || 0), 0),
+  }));
+  const maxChart = Math.max(...chartData.map(d => Math.max(d.meta, d.li)), 1);
+
+  const sorted = [...filtered].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  const pc = PLATFORM_COLORS[platform];
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
+        <div>
+          <h1 style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.5rem", fontWeight: 400, color: "#EDE8DF", letterSpacing: "0.18em", textTransform: "uppercase", margin: 0 }}>Marketing</h1>
+          <div style={{ color: "#555045", fontSize: "0.78rem", marginTop: 2 }}>Inversión publicitaria · Standard 69</div>
+        </div>
+        <button type="button" onClick={() => setForm("new")} style={S.btnP}>+ Nueva campaña</button>
+      </div>
+
+      {/* Platform tabs */}
+      <div style={{ display: "flex", gap: 0, marginBottom: "1.75rem", borderBottom: "1px solid #1C1C18" }}>
+        {PLATFORMS.map(p => {
+          const c = PLATFORM_COLORS[p];
+          const active = platform === p;
+          const cnt = marketing.filter(r => r.platform === p).length;
+          return (
+            <button key={p} type="button" onClick={() => setPlatform(p)} style={{
+              padding: "0.65rem 1.5rem", background: "none", border: "none",
+              borderBottom: active ? `2px solid ${c.primary}` : "2px solid transparent",
+              color: active ? c.primary : "#4A4540", cursor: "pointer",
+              fontFamily: "inherit", fontSize: "0.78rem", letterSpacing: "0.1em",
+              textTransform: "uppercase", marginBottom: -1, display: "flex", alignItems: "center", gap: "0.5rem"
+            }}>
+              {p}
+              {cnt > 0 && <span style={{ background: active ? c.bg : "rgba(255,255,255,0.05)", color: active ? c.primary : "#555045", border: `1px solid ${active ? c.bd : "#1C1C18"}`, borderRadius: 10, fontSize: "0.6rem", padding: "1px 7px", fontWeight: 600 }}>{cnt}</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* KPI cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "0.875rem", marginBottom: "1.75rem" }}>
+        {[
+          { lbl: "Total invertido",  val: fmtARS(totalSpent),   color: pc.primary },
+          { lbl: "Leads generados",  val: totalLeads > 0 ? totalLeads.toLocaleString("es-AR") : "—", color: "#34D399" },
+          { lbl: "Costo por lead",   val: cpl != null ? fmtARS(Math.round(cpl)) : "—", color: GOLD },
+          { lbl: "CTR",              val: ctr != null ? `${ctr.toFixed(2)}%` : "—", sub: `${totalClicks.toLocaleString("es-AR")} clics`, color: "#A78BFA" },
+        ].map((s, i) => (
+          <div key={i} style={S.card}>
+            <div style={S.lbl}>{s.lbl}</div>
+            <div style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.6rem", fontWeight: 300, color: s.color, lineHeight: 1.1 }}>{s.val}</div>
+            {s.sub && <div style={{ fontSize: "0.68rem", color: "#4A4540", marginTop: 3 }}>{s.sub}</div>}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: "1.125rem", marginBottom: "1.5rem" }}>
+        {/* Bar chart — inversión mensual por plataforma */}
+        <div style={S.card}>
+          <div style={{ fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6A6055", marginBottom: "1.25rem" }}>Inversión mensual por plataforma</div>
+          {chartData.length === 0 && <div style={{ color: "#4A4540", fontSize: "0.875rem" }}>Sin datos aún</div>}
+          <div style={{ display: "flex", gap: "0.625rem", alignItems: "flex-end", height: 110 }}>
+            {chartData.map(d => (
+              <div key={d.m} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "stretch", height: "100%", gap: 0, justifyContent: "flex-end" }}>
+                <div style={{ display: "flex", gap: 2, alignItems: "flex-end", height: "100%" }}>
+                  <div title={`Meta Ads: ${fmtARS(d.meta)}`} style={{ flex: 1, height: `${Math.round((d.meta / maxChart) * 100)}%`, minHeight: d.meta > 0 ? 4 : 0, background: "rgba(24,119,242,0.5)", borderRadius: "3px 3px 0 0" }} />
+                  <div title={`LinkedIn: ${fmtARS(d.li)}`} style={{ flex: 1, height: `${Math.round((d.li / maxChart) * 100)}%`, minHeight: d.li > 0 ? 4 : 0, background: "rgba(10,102,194,0.5)", borderRadius: "3px 3px 0 0" }} />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: "0.625rem", marginTop: "0.5rem" }}>
+            {chartData.map(d => <div key={d.m} style={{ flex: 1, textAlign: "center", fontSize: "0.58rem", color: "#454035", textTransform: "capitalize" }}>{new Date(d.m + "-01").toLocaleDateString("es-AR", { month: "short" })}</div>)}
+          </div>
+          <div style={{ display: "flex", gap: "1.25rem", marginTop: "0.75rem" }}>
+            <span style={{ fontSize: "0.68rem", color: "rgba(24,119,242,0.9)" }}>■ Meta Ads</span>
+            <span style={{ fontSize: "0.68rem", color: "rgba(10,102,194,0.9)" }}>■ LinkedIn</span>
+          </div>
+        </div>
+
+        {/* Resumen comparativo plataformas */}
+        <div style={S.card}>
+          <div style={{ fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6A6055", marginBottom: "1.125rem" }}>Comparativa de plataformas</div>
+          {PLATFORMS.map(p => {
+            const pc2 = PLATFORM_COLORS[p];
+            const sp  = all.filter(r => r.platform === p).reduce((s, r) => s + (r.spent || 0), 0);
+            const ld  = all.filter(r => r.platform === p).reduce((s, r) => s + (r.leads || 0), 0);
+            const pct = totalSpentAll > 0 ? Math.round((sp / totalSpentAll) * 100) : 0;
+            return (
+              <div key={p} style={{ marginBottom: "1rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem" }}>
+                  <span style={{ fontSize: "0.78rem", color: pc2.primary }}>{p}</span>
+                  <span style={{ fontSize: "0.78rem", color: "#B0A898", fontWeight: 500 }}>{fmtARS(sp)}</span>
+                </div>
+                <div style={{ height: 5, background: "#1A1A18", borderRadius: 3 }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: pc2.primary, borderRadius: 3, opacity: 0.7 }} />
+                </div>
+                <div style={{ fontSize: "0.65rem", color: "#454035", marginTop: "0.25rem" }}>{ld} leads · {pct}% del gasto</div>
+              </div>
+            );
+          })}
+          {totalSpentAll === 0 && <div style={{ color: "#4A4540", fontSize: "0.875rem" }}>Sin inversión registrada</div>}
+          {totalSpentAll > 0 && (
+            <div style={{ marginTop: "0.875rem", paddingTop: "0.75rem", borderTop: "1px solid #181818", display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "0.75rem", color: "#555045" }}>Total invertido</span>
+              <span style={{ fontSize: "0.875rem", color: "#EDE8DF", fontWeight: 600 }}>{fmtARS(totalSpentAll)}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Tabla de campañas */}
+      <div style={S.card}>
+        <div style={{ fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6A6055", marginBottom: "1rem" }}>
+          Campañas · {platform}
+        </div>
+        {sorted.length === 0 && (
+          <div style={{ color: "#4A4540", fontSize: "0.875rem", padding: "1.5rem 0" }}>
+            Sin campañas registradas para {platform}. Agregá la primera con "+ Nueva campaña".
+          </div>
+        )}
+        {sorted.length > 0 && (
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                {["Período", "Campaña", "Objetivo", "Invertido", "Impresiones", "Clics", "Leads", "CPL", ""].map((h, i) => (
+                  <th key={i} style={{ ...S.th, padding: "0 0.75rem 0.6rem 0", textAlign: i >= 3 && i < 8 ? "right" : "left" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map(r => {
+                const rCpl = r.leads > 0 ? r.spent / r.leads : null;
+                return (
+                  <tr key={r.id} style={{ borderTop: "1px solid #181818" }}>
+                    <td style={{ padding: "0.6rem 0.75rem 0.6rem 0", fontSize: "0.78rem", color: "#7A7260", whiteSpace: "nowrap" }}>
+                      {r.date ? new Date(r.date + "T00:00:00").toLocaleDateString("es-AR", { month: "short", year: "numeric" }) : "—"}
+                    </td>
+                    <td style={{ padding: "0.6rem 0.75rem 0.6rem 0", fontSize: "0.825rem", color: "#F0EAD8", maxWidth: 220 }}>
+                      <div>{r.campaign}</div>
+                      {r.notes && <div style={{ fontSize: "0.68rem", color: "#555045", marginTop: 2 }}>{r.notes}</div>}
+                    </td>
+                    <td style={{ padding: "0.6rem 0.75rem 0.6rem 0", fontSize: "0.72rem", color: "#7A7260" }}>{r.objective || "—"}</td>
+                    <td style={{ padding: "0.6rem 0.75rem 0.6rem 0", fontSize: "0.825rem", color: pc.primary, fontWeight: 500, textAlign: "right", whiteSpace: "nowrap" }}>{fmtARS(r.spent)}</td>
+                    <td style={{ padding: "0.6rem 0.75rem 0.6rem 0", fontSize: "0.78rem", color: "#7A7260", textAlign: "right" }}>{r.impressions != null ? r.impressions.toLocaleString("es-AR") : "—"}</td>
+                    <td style={{ padding: "0.6rem 0.75rem 0.6rem 0", fontSize: "0.78rem", color: "#7A7260", textAlign: "right" }}>{r.clicks != null ? r.clicks.toLocaleString("es-AR") : "—"}</td>
+                    <td style={{ padding: "0.6rem 0.75rem 0.6rem 0", fontSize: "0.78rem", color: "#34D399", textAlign: "right", fontWeight: r.leads > 0 ? 600 : 400 }}>{r.leads != null ? r.leads : "—"}</td>
+                    <td style={{ padding: "0.6rem 0.75rem 0.6rem 0", fontSize: "0.78rem", color: GOLD, textAlign: "right", whiteSpace: "nowrap" }}>{rCpl != null ? fmtARS(Math.round(rCpl)) : "—"}</td>
+                    <td style={{ padding: "0.6rem 0 0.6rem 0.75rem", whiteSpace: "nowrap" }}>
+                      <button type="button" onClick={() => setForm(r)} style={{ ...S.btnS, padding: "0.25rem 0.6rem", fontSize: "0.72rem", marginRight: 4 }}>Editar</button>
+                      <button type="button" onClick={() => { if (window.confirm("¿Eliminar campaña?")) onDelete(r.id); }} style={{ ...S.btnS, padding: "0.25rem 0.6rem", fontSize: "0.72rem", color: "#D05050", borderColor: "rgba(208,80,80,0.25)" }}>×</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr style={{ borderTop: "1px solid #2A2A28" }}>
+                <td colSpan={3} style={{ padding: "0.6rem 0.75rem 0.6rem 0", fontSize: "0.68rem", color: "#454035", letterSpacing: "0.1em", textTransform: "uppercase" }}>Total {platform}</td>
+                <td style={{ padding: "0.6rem 0.75rem 0.6rem 0", fontSize: "0.875rem", color: pc.primary, fontWeight: 600, textAlign: "right" }}>{fmtARS(totalSpent)}</td>
+                <td style={{ padding: "0.6rem 0.75rem 0.6rem 0", textAlign: "right", fontSize: "0.78rem", color: "#555045" }}>{totalImpr > 0 ? totalImpr.toLocaleString("es-AR") : "—"}</td>
+                <td style={{ padding: "0.6rem 0.75rem 0.6rem 0", textAlign: "right", fontSize: "0.78rem", color: "#555045" }}>{totalClicks > 0 ? totalClicks.toLocaleString("es-AR") : "—"}</td>
+                <td style={{ padding: "0.6rem 0.75rem 0.6rem 0", textAlign: "right", fontSize: "0.78rem", color: "#34D399", fontWeight: 600 }}>{totalLeads > 0 ? totalLeads : "—"}</td>
+                <td style={{ padding: "0.6rem 0.75rem 0.6rem 0", textAlign: "right", fontSize: "0.78rem", color: GOLD }}>{cpl != null ? fmtARS(Math.round(cpl)) : "—"}</td>
+                <td />
+              </tr>
+            </tfoot>
+          </table>
+        )}
+      </div>
+
+      {form && (
+        <MarketingForm
+          initial={form === "new" ? { platform } : form}
+          onSave={d => {
+            if (form === "new" || !form.id) onAdd(d);
+            else onUpdate({ ...form, ...d });
+            setForm(null);
+          }}
+          onClose={() => setForm(null)}
+        />
+      )}
+    </div>
+  );
+}
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [view, setView] = useState("dashboard");
@@ -2109,6 +2419,7 @@ export default function App() {
   const [operaciones,  setOperaciones]  = useState([]);
   const [personalDB,   setPersonalDB]   = useState([]);
   const [recetas,      setRecetas]      = useState([]);
+  const [marketingDB,  setMarketingDB]  = useState([]);
 
   const [eventModal,  setEventModal]  = useState(null);
   const [clientModal, setClientModal] = useState(null);
@@ -2125,6 +2436,7 @@ export default function App() {
         if (data.postventas?.length)  setPostventas(data.postventas.map(parsePostventa));
         if (data.operaciones?.length) setOperaciones(data.operaciones.map(parseOp));
         if (data.personal?.length)    setPersonalDB(data.personal.map(parsePersonal));
+        if (data.marketing?.length)   setMarketingDB(data.marketing.map(parseMarketing));
         setLoading(false);
       })
       .catch(err => { setLoadError(err.message); setLoading(false); });
@@ -2230,6 +2542,10 @@ export default function App() {
   const updatePersonal = p => { const n = parsePersonal(p); setPersonalDB(prev => prev.map(x => x.id === n.id ? n : x)); sync("update", "Personal", n); };
   const deletePersonal = id => { setPersonalDB(prev => prev.filter(x => x.id !== id)); sync("delete", "Personal", null, id); };
 
+  const addMarketing    = m => { const n = parseMarketing({ ...m, id: nextId(marketingDB) }); setMarketingDB(prev => [...prev, n]); sync("add", "Marketing", n); };
+  const updateMarketing = m => { const n = parseMarketing(m); setMarketingDB(prev => prev.map(x => x.id === n.id ? n : x)); sync("update", "Marketing", n); };
+  const deleteMarketing = id => { setMarketingDB(prev => prev.filter(x => x.id !== id)); sync("delete", "Marketing", null, id); };
+
   if (!authChecked) return (
     <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "#080808" }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
@@ -2272,8 +2588,9 @@ export default function App() {
         )}
         {view === "personal"  && <PersonalModule personal={personalDB} onAdd={addPersonal} onUpdate={updatePersonal} onDelete={deletePersonal} />}
         {view === "pagos"     && <Pagos     events={events} payments={payments} onAdd={addPayment} onUpdate={updatePayment} onDelete={deletePayment} />}
-        {view === "postventa" && <PostVenta events={events} postventas={postventas} onSave={savePostventa} />}
-        {view === "pyl"       && <PyL       events={events} payments={payments} costs={costs} onAddCost={addCost} onDeleteCost={deleteCost} />}
+        {view === "postventa"  && <PostVenta events={events} postventas={postventas} onSave={savePostventa} />}
+        {view === "pyl"        && <PyL       events={events} payments={payments} costs={costs} onAddCost={addCost} onDeleteCost={deleteCost} />}
+        {view === "marketing"  && <Marketing marketing={marketingDB} onAdd={addMarketing} onUpdate={updateMarketing} onDelete={deleteMarketing} />}
       </main>
 
       {detailEvent && (
