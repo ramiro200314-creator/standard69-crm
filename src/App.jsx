@@ -167,12 +167,13 @@ function AuthScreen({ onLogin }) {
 }
 
 const NAV = [
-  { id: "dashboard", label: "Dashboard",  sym: "⊙" },
-  { id: "pipeline",  label: "Pipeline",   sym: "⊞" },
-  { id: "clients",   label: "Clientes",   sym: "◎" },
-  { id: "pagos",     label: "Pagos",      sym: "◈" },
-  { id: "postventa", label: "Post-venta", sym: "◇" },
-  { id: "pyl",       label: "P & L",      sym: "◬" },
+  { id: "dashboard",   label: "Dashboard",   sym: "⊙" },
+  { id: "pipeline",    label: "Pipeline",    sym: "⊞" },
+  { id: "clients",     label: "Clientes",    sym: "◎" },
+  { id: "operaciones", label: "Operaciones", sym: "◫" },
+  { id: "pagos",       label: "Pagos",       sym: "◈" },
+  { id: "postventa",   label: "Post-venta",  sym: "◇" },
+  { id: "pyl",         label: "P & L",       sym: "◬" },
 ];
 
 function Sidebar({ view, setView, events, payments, syncing, user, onLogout }) {
@@ -938,6 +939,16 @@ function EventForm({ ev, clients, onSave, onClose }) {
 
 const CANALES = ["Campaña Meta Ads", "Instagram", "Ramiro", "Javier Rodriguez", "Otro referido", "Web", "Punto W", "LinkedIn"];
 
+const MENU_TIPOS = [
+  { nombre: "Finger food",         porPax: 10 },
+  { nombre: "Finger food premium", porPax: 10 },
+  { nombre: "Merienda / Desayuno", porPax: 3  },
+  { nombre: "Menú por pasos",      porPax: 3  },
+  { nombre: "Tapeo",               porPax: 3  },
+];
+const ROLES_OP = ["Mozo/a", "Bartender", "Coordinador/a", "Cocinero/a", "Sommelier", "Seguridad", "Limpieza", "DJ / Animación", "Fotografía", "Otro"];
+const parseOp = r => ({ ...r, id: toNum(r.id), eventId: toNum(r.eventId), orden: toNum(r.orden) || 0 });
+
 function ClientForm({ client, onSave, onClose }) {
   const [f, setF] = useState(client ? { ...client } : { name: "", company: "", phone: "", email: "", type: "Privado", canal: "", notes: "" });
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
@@ -985,6 +996,453 @@ function ClientForm({ client, onSave, onClose }) {
   );
 }
 
+// ─── Operaciones PDF ──────────────────────────────────────────────────────────
+function exportarPDF(ev, ops) {
+  const personal    = ops.filter(o => o.tipo === "personal");
+  const platos      = ops.filter(o => o.tipo === "plato");
+  const ingredientes= ops.filter(o => o.tipo === "ingrediente");
+  const timings     = ops.filter(o => o.tipo === "timing").sort((a,b) => a.orden - b.orden);
+  const checkComida = ops.find(o => o.tipo === "check_comida") || {};
+  const checkBebida = ops.find(o => o.tipo === "check_bebida") || {};
+  const checkEquipo = ops.find(o => o.tipo === "check_equipo") || {};
+  const pago        = ops.find(o => o.tipo === "op_pago") || {};
+  const referidos   = ops.filter(o => o.tipo === "op_referido");
+  const nota        = ops.find(o => o.tipo === "op_nota") || {};
+  const venue       = (ev.notes || "").match(/Sede: ([^|]+)/)?.[1]?.trim() || "";
+  const css = `*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#1a1a1a;padding:36px;font-size:13px}.hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:18px;margin-bottom:28px}.logo{font-size:1.1rem;font-weight:500;letter-spacing:.28em;text-transform:uppercase}.logo-n{font-size:1.3rem;font-style:italic}.ev-t{font-size:1.1rem;font-weight:600;text-align:right}.ev-m{font-size:.8rem;color:#666;text-align:right;margin-top:4px}h2{font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:#999;border-bottom:1px solid #eee;padding-bottom:5px;margin:22px 0 10px}table{width:100%;border-collapse:collapse}th{text-align:left;padding:5px 10px;background:#f5f5f5;font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:#777}td{padding:7px 10px;border-bottom:1px solid #f0f0f0}.cr{display:flex;align-items:center;gap:10px;padding:5px 0}.box{width:15px;height:15px;border:1.5px solid #ccc;border-radius:2px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px}.done{background:#1a1a1a;border-color:#1a1a1a;color:#fff}.tr{display:flex;gap:14px;padding:5px 0;border-bottom:1px solid #f5f5f5}.th{font-weight:600;min-width:60px;color:#d39a59}.nb{background:#f9f9f9;padding:12px;border-radius:4px;line-height:1.6;white-space:pre-wrap}@media print{body{padding:20px}}`;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Ops · ${ev.title}</title><style>${css}</style></head><body>
+<div class="hdr"><div><span class="logo">STANDARD </span><span class="logo-n">69</span></div><div><div class="ev-t">${ev.title}</div><div class="ev-m">${ev.date} · ${ev.guests} PAX${venue ? ' · '+venue : ''} · ${ev.clientName}</div></div></div>
+${personal.length ? `<h2>Personal adicional</h2><table><tr><th>Nombre</th><th>Rol</th><th>Horario</th><th>Teléfono</th><th>Monto</th></tr>${personal.map(p=>`<tr><td>${p.campo1||''}</td><td>${p.campo2||''}</td><td>${p.campo3||''}</td><td>${p.campo4||''}</td><td>${p.campo5?'$'+Number(p.campo5).toLocaleString('es-AR'):''}</td></tr>`).join('')}</table>` : ''}
+${platos.length ? `<h2>Menú y producción</h2><table><tr><th>Plato</th><th>Tipo</th><th>Porciones</th></tr>${platos.map(p=>`<tr><td>${p.campo1||''}</td><td>${p.campo2||''}</td><td>${p.campo3||''}</td></tr>`).join('')}</table>` : ''}
+${ingredientes.length ? `<h2>Insumos</h2><table><tr><th>Ingrediente</th><th>Cantidad</th><th>Unidad</th><th>Estado</th></tr>${ingredientes.map(i=>`<tr><td>${i.campo1||''}</td><td>${i.campo2||''}</td><td>${i.campo3||''}</td><td>${i.campo4||'Pendiente'}</td></tr>`).join('')}</table>` : ''}
+${timings.length ? `<h2>Timing</h2>${timings.map(t=>`<div class="tr"><span class="th">${t.campo1||''}</span><span>${t.campo2||''}</span></div>`).join('')}` : ''}
+${[{l:'Check comida',d:checkComida},{l:'Check bebida',d:checkBebida},{l:'Check equipo',d:checkEquipo}].some(c=>c.d.campo1!==undefined) ? `<h2>Checklists</h2>${[{l:'Check comida',d:checkComida},{l:'Check bebida',d:checkBebida},{l:'Check equipo',d:checkEquipo}].map(c=>`<div class="cr"><div class="box ${c.d.campo2==='true'?'done':''}">${c.d.campo2==='true'?'✓':''}</div><div><strong>${c.l}</strong>${c.d.campo3?' · '+c.d.campo3:''}</div></div>`).join('')}` : ''}
+${pago.campo1 ? `<h2>Pago post-evento</h2><p>Estado: <strong>${pago.campo1}</strong>${pago.campo2?' · $'+Number(pago.campo2).toLocaleString('es-AR'):''}${pago.campo3?' · '+pago.campo3:''}</p>` : ''}
+${referidos.length ? `<h2>Referidos</h2><table><tr><th>Nombre</th><th>Contacto</th><th>Notas</th></tr>${referidos.map(r=>`<tr><td>${r.campo1||''}</td><td>${r.campo2||''}</td><td>${r.campo3||''}</td></tr>`).join('')}</table>` : ''}
+${nota.campo1 ? `<h2>Notas operativas</h2><div class="nb">${nota.campo1}</div>` : ''}
+</body></html>`;
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => w.print(), 600);
+}
+
+// ─── Operaciones List ─────────────────────────────────────────────────────────
+function EventOpCard({ ev, ops, onClick }) {
+  const personal  = ops.filter(o => o.tipo === "personal").length;
+  const platos    = ops.filter(o => o.tipo === "plato").length;
+  const checks    = ops.filter(o => ["check_comida","check_bebida","check_equipo"].includes(o.tipo));
+  const done      = checks.filter(o => o.campo2 === "true").length;
+  const venue     = (ev.notes||"").match(/Sede: ([^|]+)/)?.[1]?.trim() || "";
+  return (
+    <div onClick={onClick} style={{ ...S.card, cursor: "pointer" }}
+      onMouseEnter={e => e.currentTarget.style.borderColor = GOLD}
+      onMouseLeave={e => e.currentTarget.style.borderColor = "#1C1C18"}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+        <div style={{ fontSize: "0.875rem", fontWeight: 500, color: "#EDE8DF" }}>{ev.title}</div>
+        <div style={{ fontSize: "0.65rem", color: GOLD }}>{fmtD(ev.date)}</div>
+      </div>
+      <div style={{ fontSize: "0.72rem", color: "#555045", marginBottom: "0.75rem" }}>{ev.clientName} · {ev.guests} PAX{venue ? ` · ${venue}` : ""}</div>
+      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+        {[
+          { label: `${personal} personal`, on: personal > 0 },
+          { label: `${platos} platos`, on: platos > 0 },
+          { label: `${done}/3 checks`, on: done > 0 },
+        ].map((t, i) => (
+          <span key={i} style={{ fontSize: "0.6rem", padding: "2px 8px", borderRadius: 10, background: t.on ? "rgba(211,154,89,0.12)" : "rgba(255,255,255,0.04)", color: t.on ? GOLD : "#383330", letterSpacing: "0.05em" }}>{t.label}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OperacionesList({ events, operaciones, setOpEventId }) {
+  const today = todayStr();
+  const sorted = [...events].sort((a,b) => a.date > b.date ? 1 : -1);
+  const upcoming = sorted.filter(e => e.date >= today);
+  const past = sorted.filter(e => e.date < today).reverse().slice(0, 20);
+  const sLabel = { fontSize: "0.58rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "#454035", marginBottom: "0.875rem", display: "block" };
+  return (
+    <div>
+      <div style={{ marginBottom: "2rem" }}>
+        <h1 style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.5rem", fontWeight: 400, color: "#EDE8DF", letterSpacing: "0.18em", textTransform: "uppercase", margin: 0 }}>Operaciones</h1>
+        <div style={{ color: "#3A3530", fontSize: "0.72rem", marginTop: 4, letterSpacing: "0.05em" }}>Gestión operativa por evento</div>
+      </div>
+      {upcoming.length > 0 && <>
+        <span style={sLabel}>Próximos</span>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: "0.875rem", marginBottom: "1.75rem" }}>
+          {upcoming.map(ev => <EventOpCard key={ev.id} ev={ev} ops={operaciones.filter(o => o.eventId === ev.id)} onClick={() => setOpEventId(ev.id)} />)}
+        </div>
+      </>}
+      {past.length > 0 && <>
+        <span style={sLabel}>Pasados</span>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: "0.875rem" }}>
+          {past.map(ev => <EventOpCard key={ev.id} ev={ev} ops={operaciones.filter(o => o.eventId === ev.id)} onClick={() => setOpEventId(ev.id)} />)}
+        </div>
+      </>}
+    </div>
+  );
+}
+
+// ─── Operaciones Detail ───────────────────────────────────────────────────────
+function OperacionDetalle({ ev, ops, recetas, onAdd, onUpdate, onDelete, onBack }) {
+  const [tab, setTab] = useState("menu");
+  const venue     = (ev.notes||"").match(/Sede: ([^|]+)/)?.[1]?.trim() || "";
+  const personal  = ops.filter(o => o.tipo === "personal").sort((a,b) => a.orden - b.orden);
+  const platos    = ops.filter(o => o.tipo === "plato").sort((a,b) => a.orden - b.orden);
+  const ings      = ops.filter(o => o.tipo === "ingrediente");
+  const timings   = ops.filter(o => o.tipo === "timing").sort((a,b) => a.orden - b.orden);
+  const checkC    = ops.find(o => o.tipo === "check_comida");
+  const checkB    = ops.find(o => o.tipo === "check_bebida");
+  const checkE    = ops.find(o => o.tipo === "check_equipo");
+  const pago      = ops.find(o => o.tipo === "op_pago");
+  const referidos = ops.filter(o => o.tipo === "op_referido");
+  const nota      = ops.find(o => o.tipo === "op_nota");
+  const tabs = [{ id:"menu",label:"Menú"},{id:"personal",label:"Personal"},{id:"operacion",label:"Operación"},{id:"post",label:"Post-evento"}];
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <button type="button" onClick={onBack} style={{ ...S.btnS, padding: "0.35rem 0.75rem" }}>← Volver</button>
+          <div>
+            <h1 style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.25rem", fontWeight: 400, color: "#EDE8DF", letterSpacing: "0.14em", textTransform: "uppercase", margin: 0 }}>{ev.title}</h1>
+            <div style={{ fontSize: "0.7rem", color: "#555045", marginTop: 3 }}>{fmtDLong(ev.date)} · {ev.guests} PAX{venue ? ` · ${venue}` : ""} · {ev.clientName}</div>
+          </div>
+        </div>
+        <button type="button" onClick={() => exportarPDF(ev, ops)} style={S.btnP}>Exportar PDF</button>
+      </div>
+      <div style={{ display: "flex", borderBottom: "1px solid #1C1C18", marginBottom: "1.5rem" }}>
+        {tabs.map(t => (
+          <button key={t.id} type="button" onClick={() => setTab(t.id)}
+            style={{ padding: "0.6rem 1.25rem", background: "none", border: "none", borderBottom: tab === t.id ? `2px solid ${GOLD}` : "2px solid transparent", color: tab === t.id ? GOLD : "#4A4540", cursor: "pointer", fontFamily: "inherit", fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: -1 }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {tab === "menu"      && <MenuTab      ev={ev} platos={platos} ings={ings} recetas={recetas} onAdd={onAdd} onUpdate={onUpdate} onDelete={onDelete} />}
+      {tab === "personal"  && <PersonalTab  ev={ev} personal={personal} onAdd={onAdd} onDelete={onDelete} />}
+      {tab === "operacion" && <OperacionTab ev={ev} timings={timings} checkC={checkC} checkB={checkB} checkE={checkE} nota={nota} onAdd={onAdd} onUpdate={onUpdate} onDelete={onDelete} />}
+      {tab === "post"      && <PostTab      ev={ev} pago={pago} referidos={referidos} onAdd={onAdd} onUpdate={onUpdate} onDelete={onDelete} />}
+    </div>
+  );
+}
+
+function MenuTab({ ev, platos, ings, recetas, onAdd, onUpdate, onDelete }) {
+  const [show, setShow] = useState(false);
+  const [menuTipo, setMenuTipo] = useState(MENU_TIPOS[0].nombre);
+  const [busca, setBusca] = useState("");
+  const [selec, setSelec] = useState("");
+  const [porc, setPorc] = useState("");
+  const cfg = MENU_TIPOS.find(m => m.nombre === menuTipo) || MENU_TIPOS[0];
+  const defPorc = Math.round(ev.guests * cfg.porPax);
+  const filtered = recetas.filter(r => r.nombre.toLowerCase().includes(busca.toLowerCase())).slice(0, 8);
+  const agregar = () => {
+    if (!selec) return;
+    const p = parseInt(porc) || defPorc;
+    onAdd({ eventId: ev.id, tipo: "plato", campo1: selec, campo2: menuTipo, campo3: String(p), campo4: "", campo5: "", orden: platos.length + 1 });
+    const receta = recetas.find(r => r.nombre === selec);
+    if (receta?.ingredientes?.length) {
+      receta.ingredientes.forEach(ing => {
+        const total = (ing.cantidad * p).toFixed(3);
+        const existe = ings.find(i => i.campo1 === ing.ingrediente);
+        if (existe) onUpdate({ ...existe, campo2: String((parseFloat(existe.campo2) + parseFloat(total)).toFixed(3)) });
+        else onAdd({ eventId: ev.id, tipo: "ingrediente", campo1: ing.ingrediente, campo2: total, campo3: ing.unidad, campo4: "Pendiente", campo5: "", orden: ings.length + 1 });
+      });
+    }
+    setShow(false); setBusca(""); setSelec(""); setPorc("");
+  };
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+        <span style={{ ...S.lbl, margin: 0 }}>Menú y producción</span>
+        <button type="button" onClick={() => setShow(!show)} style={S.btnP}>+ Agregar plato</button>
+      </div>
+      {show && (
+        <div style={{ ...S.card, marginBottom: "1rem", background: "#0D0D0B" }}>
+          <div style={{ display: "flex", gap: "1rem", marginBottom: "0.75rem" }}>
+            <div style={{ flex: 1 }}>
+              <label style={S.lbl}>Tipo de menú</label>
+              <select value={menuTipo} onChange={e => { setMenuTipo(e.target.value); setPorc(""); }} style={{ ...S.inp, appearance: "none" }}>
+                {MENU_TIPOS.map(m => <option key={m.nombre}>{m.nombre}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={S.lbl}>Porciones (default: {defPorc} = {ev.guests}pax × {cfg.porPax})</label>
+              <input type="number" value={porc} onChange={e => setPorc(e.target.value)} placeholder={String(defPorc)} style={S.inp} />
+            </div>
+          </div>
+          <div style={{ marginBottom: "0.75rem" }}>
+            <label style={S.lbl}>Buscar plato</label>
+            <input value={busca} onChange={e => { setBusca(e.target.value); setSelec(""); }} placeholder="Escribí el nombre del plato..." style={S.inp} />
+            {busca && filtered.length > 0 && (
+              <div style={{ background: "#181816", border: "1px solid #232320", borderRadius: 5, marginTop: 4, maxHeight: 180, overflowY: "auto" }}>
+                {filtered.map((r, i) => (
+                  <div key={i} onClick={() => { setSelec(r.nombre); setBusca(r.nombre); }}
+                    style={{ padding: "0.5rem 0.75rem", cursor: "pointer", fontSize: "0.8rem", color: selec === r.nombre ? GOLD : "#EDE8DF", background: selec === r.nombre ? "rgba(211,154,89,0.08)" : "transparent" }}>
+                    {r.nombre}
+                    {r.ingredientes?.length > 0 && <span style={{ fontSize: "0.65rem", color: "#3A3530", marginLeft: 6 }}>· {r.ingredientes.length} ingredientes</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          {selec && <div style={{ fontSize: "0.75rem", color: GOLD, marginBottom: "0.75rem" }}>✓ {selec} · {parseInt(porc) || defPorc} porciones</div>}
+          <div style={{ display: "flex", gap: "0.625rem", justifyContent: "flex-end" }}>
+            <button type="button" onClick={() => setShow(false)} style={S.btnS}>Cancelar</button>
+            <button type="button" onClick={agregar} disabled={!selec} style={{ ...S.btnP, opacity: selec ? 1 : 0.4 }}>Agregar</button>
+          </div>
+        </div>
+      )}
+      {platos.length === 0 && !show && <div style={{ ...S.card, textAlign: "center", color: "#3A3530", fontSize: "0.8rem", padding: "2rem" }}>Sin platos. Seleccioná el menú y agregá los platos del evento.</div>}
+      {platos.length > 0 && (
+        <div style={{ ...S.card, padding: 0, overflow: "hidden", marginBottom: "1rem" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead><tr style={{ borderBottom: "1px solid #1C1C18" }}>{["Plato","Menú","Porciones",""].map(h => <th key={h} style={{ padding: "0.6rem 1rem", textAlign: "left", ...S.lbl, marginBottom: 0 }}>{h}</th>)}</tr></thead>
+            <tbody>{platos.map(p => (
+              <tr key={p.id} style={{ borderBottom: "1px solid #141412" }}>
+                <td style={{ padding: "0.75rem 1rem", fontSize: "0.85rem", color: "#EDE8DF" }}>{p.campo1}</td>
+                <td style={{ padding: "0.75rem 1rem", fontSize: "0.72rem", color: "#6A6055" }}>{p.campo2}</td>
+                <td style={{ padding: "0.75rem 1rem", fontSize: "0.85rem", color: GOLD }}>{p.campo3}</td>
+                <td style={{ padding: "0.75rem 1rem", textAlign: "right" }}><button type="button" onClick={() => onDelete(p.id)} style={{ ...S.btnS, padding: "0.2rem 0.5rem", fontSize: "0.7rem", color: "#D05050", borderColor: "rgba(208,80,80,0.2)" }}>×</button></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+      {ings.length > 0 && (
+        <>
+          <span style={{ ...S.lbl, display: "block", marginBottom: "0.75rem" }}>Lista de insumos</span>
+          <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr style={{ borderBottom: "1px solid #1C1C18" }}>{["Ingrediente","Cantidad","Unidad","Estado",""].map(h => <th key={h} style={{ padding: "0.6rem 1rem", textAlign: "left", ...S.lbl, marginBottom: 0 }}>{h}</th>)}</tr></thead>
+              <tbody>{ings.map(i => {
+                const col = i.campo4 === "Entregado" ? "#7EB89A" : i.campo4 === "Comprado" ? GOLD : "#555045";
+                return (
+                  <tr key={i.id} style={{ borderBottom: "1px solid #141412" }}>
+                    <td style={{ padding: "0.75rem 1rem", fontSize: "0.85rem", color: "#EDE8DF" }}>{i.campo1}</td>
+                    <td style={{ padding: "0.75rem 1rem", fontSize: "0.85rem", color: "#EDE8DF" }}>{i.campo2}</td>
+                    <td style={{ padding: "0.75rem 1rem", fontSize: "0.72rem", color: "#6A6055" }}>{i.campo3}</td>
+                    <td style={{ padding: "0.75rem 1rem" }}>
+                      <select value={i.campo4 || "Pendiente"} onChange={e => onUpdate({ ...i, campo4: e.target.value })}
+                        style={{ background: "transparent", border: "none", color: col, fontSize: "0.78rem", cursor: "pointer", fontFamily: "inherit" }}>
+                        {["Pendiente","Comprado","Entregado"].map(s => <option key={s}>{s}</option>)}
+                      </select>
+                    </td>
+                    <td style={{ padding: "0.75rem 1rem", textAlign: "right" }}><button type="button" onClick={() => onDelete(i.id)} style={{ ...S.btnS, padding: "0.2rem 0.5rem", fontSize: "0.7rem", color: "#D05050", borderColor: "rgba(208,80,80,0.2)" }}>×</button></td>
+                  </tr>
+                );
+              })}</tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function PersonalTab({ ev, personal, onAdd, onDelete }) {
+  const [show, setShow] = useState(false);
+  const [f, setF] = useState({ nombre: "", rol: ROLES_OP[0], horario: "", telefono: "", monto: "" });
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+  const agregar = () => {
+    if (!f.nombre) return;
+    onAdd({ eventId: ev.id, tipo: "personal", campo1: f.nombre, campo2: f.rol, campo3: f.horario, campo4: f.telefono, campo5: f.monto, orden: personal.length + 1 });
+    setF({ nombre: "", rol: ROLES_OP[0], horario: "", telefono: "", monto: "" });
+    setShow(false);
+  };
+  const total = personal.reduce((s, p) => s + (parseFloat(p.campo5) || 0), 0);
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+        <span style={{ ...S.lbl, margin: 0 }}>Personal adicional · {personal.length} personas{total > 0 ? ` · ${fmtARS(total)}` : ""}</span>
+        <button type="button" onClick={() => setShow(!show)} style={S.btnP}>+ Agregar</button>
+      </div>
+      {show && (
+        <div style={{ ...S.card, marginBottom: "1rem", background: "#0D0D0B" }}>
+          <div style={{ display: "flex", gap: "1rem", marginBottom: "0.75rem" }}>
+            <div style={{ flex: 2 }}>
+              <label style={S.lbl}>Nombre *</label>
+              <input value={f.nombre} onChange={e => set("nombre", e.target.value)} style={S.inp} placeholder="Nombre completo" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={S.lbl}>Rol</label>
+              <select value={f.rol} onChange={e => set("rol", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+                {ROLES_OP.map(r => <option key={r}>{r}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: "1rem" }}>
+            <div style={{ flex: 1 }}><label style={S.lbl}>Horario</label><input value={f.horario} onChange={e => set("horario", e.target.value)} style={S.inp} placeholder="18hs - 23hs" /></div>
+            <div style={{ flex: 1 }}><label style={S.lbl}>Teléfono</label><input value={f.telefono} onChange={e => set("telefono", e.target.value)} style={S.inp} placeholder="351-xxx-xxxx" /></div>
+            <div style={{ flex: 1 }}><label style={S.lbl}>Monto (ARS)</label><input type="number" value={f.monto} onChange={e => set("monto", e.target.value)} style={S.inp} placeholder="0" /></div>
+          </div>
+          <div style={{ display: "flex", gap: "0.625rem", justifyContent: "flex-end", marginTop: "0.75rem" }}>
+            <button type="button" onClick={() => setShow(false)} style={S.btnS}>Cancelar</button>
+            <button type="button" onClick={agregar} style={S.btnP}>Agregar</button>
+          </div>
+        </div>
+      )}
+      {personal.length === 0 && !show && <div style={{ ...S.card, textAlign: "center", color: "#3A3530", fontSize: "0.8rem", padding: "2rem" }}>Sin personal adicional cargado.</div>}
+      {personal.length > 0 && (
+        <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead><tr style={{ borderBottom: "1px solid #1C1C18" }}>{["Nombre","Rol","Horario","Teléfono","Monto",""].map(h => <th key={h} style={{ padding: "0.6rem 1rem", textAlign: "left", ...S.lbl, marginBottom: 0 }}>{h}</th>)}</tr></thead>
+            <tbody>{personal.map(p => (
+              <tr key={p.id} style={{ borderBottom: "1px solid #141412" }}>
+                <td style={{ padding: "0.75rem 1rem", fontSize: "0.85rem", color: "#EDE8DF", fontWeight: 500 }}>{p.campo1}</td>
+                <td style={{ padding: "0.75rem 1rem", fontSize: "0.72rem", color: "#6A6055" }}>{p.campo2}</td>
+                <td style={{ padding: "0.75rem 1rem", fontSize: "0.72rem", color: "#6A6055" }}>{p.campo3}</td>
+                <td style={{ padding: "0.75rem 1rem", fontSize: "0.72rem", color: "#6A6055" }}>{p.campo4}</td>
+                <td style={{ padding: "0.75rem 1rem", fontSize: "0.85rem", color: GOLD }}>{p.campo5 ? fmtARS(parseFloat(p.campo5)) : "—"}</td>
+                <td style={{ padding: "0.75rem 1rem", textAlign: "right" }}><button type="button" onClick={() => onDelete(p.id)} style={{ ...S.btnS, padding: "0.2rem 0.5rem", fontSize: "0.7rem", color: "#D05050", borderColor: "rgba(208,80,80,0.2)" }}>×</button></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OperacionTab({ ev, timings, checkC, checkB, checkE, nota, onAdd, onUpdate, onDelete }) {
+  const [newT, setNewT] = useState({ hora: "", desc: "" });
+  const [notaText, setNotaText] = useState(nota?.campo1 || "");
+  const toggleCheck = (data, tipo) => {
+    const val = data?.campo2 === "true" ? "false" : "true";
+    if (data) onUpdate({ ...data, campo2: val });
+    else onAdd({ eventId: ev.id, tipo, campo1: tipo, campo2: val, campo3: "", campo4: "", campo5: "", orden: 0 });
+  };
+  const updateNota = (data, tipo, txt) => {
+    if (data) onUpdate({ ...data, campo3: txt });
+    else onAdd({ eventId: ev.id, tipo, campo1: tipo, campo2: "false", campo3: txt, campo4: "", campo5: "", orden: 0 });
+  };
+  const addTiming = () => {
+    if (!newT.hora || !newT.desc) return;
+    onAdd({ eventId: ev.id, tipo: "timing", campo1: newT.hora, campo2: newT.desc, campo3: "", campo4: "", campo5: "", orden: timings.length + 1 });
+    setNewT({ hora: "", desc: "" });
+  };
+  const saveNota = () => {
+    if (nota) onUpdate({ ...nota, campo1: notaText });
+    else onAdd({ eventId: ev.id, tipo: "op_nota", campo1: notaText, campo2: "", campo3: "", campo4: "", campo5: "", orden: 0 });
+  };
+  const checks = [{ tipo: "check_comida", label: "Check comida", data: checkC }, { tipo: "check_bebida", label: "Check bebida", data: checkB }, { tipo: "check_equipo", label: "Check equipo", data: checkE }];
+  return (
+    <div>
+      <div style={{ ...S.card, marginBottom: "1rem" }}>
+        <span style={{ ...S.lbl, display: "block", marginBottom: "1rem" }}>Checklists operativos</span>
+        {checks.map((c, i) => (
+          <div key={c.tipo} style={{ marginBottom: i < checks.length - 1 ? "1rem" : 0, paddingBottom: i < checks.length - 1 ? "1rem" : 0, borderBottom: i < checks.length - 1 ? "1px solid #1C1C18" : "none" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
+              <button type="button" onClick={() => toggleCheck(c.data, c.tipo)}
+                style={{ width: 22, height: 22, border: `2px solid ${c.data?.campo2 === "true" ? GOLD : "#2E2A25"}`, borderRadius: 4, background: c.data?.campo2 === "true" ? GOLD : "transparent", cursor: "pointer", color: "#080808", fontWeight: 700, fontSize: "0.75rem", flexShrink: 0 }}>
+                {c.data?.campo2 === "true" ? "✓" : ""}
+              </button>
+              <span style={{ fontSize: "0.875rem", fontWeight: 500, color: c.data?.campo2 === "true" ? "#EDE8DF" : "#5A5450" }}>{c.label}</span>
+            </div>
+            <input value={c.data?.campo3 || ""} onChange={e => updateNota(c.data, c.tipo, e.target.value)}
+              placeholder="Notas..." style={{ ...S.inp, fontSize: "0.8rem" }} />
+          </div>
+        ))}
+      </div>
+      <div style={{ ...S.card, marginBottom: "1rem" }}>
+        <span style={{ ...S.lbl, display: "block", marginBottom: "1rem" }}>Timing del evento</span>
+        {timings.map(t => (
+          <div key={t.id} style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "0.5rem 0", borderBottom: "1px solid #141412" }}>
+            <span style={{ fontSize: "0.875rem", color: GOLD, fontWeight: 500, minWidth: 65 }}>{t.campo1}</span>
+            <span style={{ fontSize: "0.875rem", color: "#EDE8DF", flex: 1 }}>{t.campo2}</span>
+            <button type="button" onClick={() => onDelete(t.id)} style={{ ...S.btnS, padding: "0.2rem 0.5rem", fontSize: "0.7rem", color: "#D05050", borderColor: "rgba(208,80,80,0.2)" }}>×</button>
+          </div>
+        ))}
+        <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.75rem" }}>
+          <input value={newT.hora} onChange={e => setNewT(p => ({ ...p, hora: e.target.value }))} placeholder="19:00hs" style={{ ...S.inp, width: 90 }} />
+          <input value={newT.desc} onChange={e => setNewT(p => ({ ...p, desc: e.target.value }))} placeholder="Descripción..." style={{ ...S.inp, flex: 1 }} />
+          <button type="button" onClick={addTiming} style={S.btnP}>+</button>
+        </div>
+      </div>
+      <div style={S.card}>
+        <span style={{ ...S.lbl, display: "block", marginBottom: "0.75rem" }}>Notas operativas</span>
+        <textarea value={notaText} onChange={e => setNotaText(e.target.value)}
+          style={{ ...S.inp, minHeight: 100, resize: "vertical" }}
+          placeholder="Briefing del evento, requerimientos especiales, observaciones del equipo..." />
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "0.75rem" }}>
+          <button type="button" onClick={saveNota} style={S.btnP}>Guardar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PostTab({ ev, pago, referidos, onAdd, onUpdate, onDelete }) {
+  const [estado, setEstado] = useState(pago?.campo1 || "Pendiente");
+  const [monto, setMonto]   = useState(pago?.campo2 || "");
+  const [metodo, setMetodo] = useState(pago?.campo3 || "Transferencia");
+  const [showRef, setShowRef] = useState(false);
+  const [ref, setRef] = useState({ nombre: "", contacto: "", notas: "" });
+  const savePago = () => {
+    if (pago) onUpdate({ ...pago, campo1: estado, campo2: monto, campo3: metodo });
+    else onAdd({ eventId: ev.id, tipo: "op_pago", campo1: estado, campo2: monto, campo3: metodo, campo4: "", campo5: "", orden: 0 });
+  };
+  const addRef = () => {
+    if (!ref.nombre) return;
+    onAdd({ eventId: ev.id, tipo: "op_referido", campo1: ref.nombre, campo2: ref.contacto, campo3: ref.notas, campo4: "", campo5: "", orden: referidos.length + 1 });
+    setRef({ nombre: "", contacto: "", notas: "" });
+    setShowRef(false);
+  };
+  return (
+    <div>
+      <div style={{ ...S.card, marginBottom: "1rem" }}>
+        <span style={{ ...S.lbl, display: "block", marginBottom: "1rem" }}>Pago post-evento</span>
+        <div style={{ display: "flex", gap: "1rem", marginBottom: "0.75rem" }}>
+          <div style={{ flex: 1 }}><label style={S.lbl}>Estado</label>
+            <select value={estado} onChange={e => setEstado(e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+              {["Pendiente","Cobrado","Cobrado parcial"].map(s => <option key={s}>{s}</option>)}
+            </select>
+          </div>
+          <div style={{ flex: 1 }}><label style={S.lbl}>Monto (ARS)</label><input type="number" value={monto} onChange={e => setMonto(e.target.value)} style={S.inp} placeholder="0" /></div>
+          <div style={{ flex: 1 }}><label style={S.lbl}>Método</label>
+            <select value={metodo} onChange={e => setMetodo(e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+              {["Transferencia","Efectivo","Cheque","Echeq"].map(m => <option key={m}>{m}</option>)}
+            </select>
+          </div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button type="button" onClick={savePago} style={S.btnP}>Guardar</button>
+        </div>
+      </div>
+      <div style={S.card}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+          <span style={{ ...S.lbl, margin: 0 }}>Referidos del evento</span>
+          <button type="button" onClick={() => setShowRef(!showRef)} style={S.btnP}>+ Agregar</button>
+        </div>
+        {showRef && (
+          <div style={{ background: "#0D0D0B", borderRadius: 6, padding: "1rem", marginBottom: "1rem" }}>
+            <div style={{ display: "flex", gap: "1rem", marginBottom: "0.75rem" }}>
+              <div style={{ flex: 1 }}><label style={S.lbl}>Nombre *</label><input value={ref.nombre} onChange={e => setRef(p => ({ ...p, nombre: e.target.value }))} style={S.inp} placeholder="Nombre del referido" /></div>
+              <div style={{ flex: 1 }}><label style={S.lbl}>Contacto</label><input value={ref.contacto} onChange={e => setRef(p => ({ ...p, contacto: e.target.value }))} style={S.inp} placeholder="Tel o email" /></div>
+            </div>
+            <div style={{ marginBottom: "0.75rem" }}><label style={S.lbl}>Notas</label><input value={ref.notas} onChange={e => setRef(p => ({ ...p, notas: e.target.value }))} style={S.inp} placeholder="Contexto..." /></div>
+            <div style={{ display: "flex", gap: "0.625rem", justifyContent: "flex-end" }}>
+              <button type="button" onClick={() => setShowRef(false)} style={S.btnS}>Cancelar</button>
+              <button type="button" onClick={addRef} style={S.btnP}>Agregar</button>
+            </div>
+          </div>
+        )}
+        {referidos.length === 0 && !showRef && <div style={{ textAlign: "center", color: "#3A3530", fontSize: "0.8rem", padding: "1rem" }}>Sin referidos registrados.</div>}
+        {referidos.map(r => (
+          <div key={r.id} style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "0.625rem 0", borderBottom: "1px solid #141412" }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: "0.85rem", color: "#EDE8DF", fontWeight: 500 }}>{r.campo1}</div>
+              {r.campo2 && <div style={{ fontSize: "0.72rem", color: "#555045" }}>{r.campo2}</div>}
+              {r.campo3 && <div style={{ fontSize: "0.7rem", color: "#3A3530", marginTop: 2 }}>{r.campo3}</div>}
+            </div>
+            <button type="button" onClick={() => onDelete(r.id)} style={{ ...S.btnS, padding: "0.2rem 0.5rem", fontSize: "0.7rem", color: "#D05050", borderColor: "rgba(208,80,80,0.2)" }}>×</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [view, setView] = useState("dashboard");
@@ -993,12 +1451,15 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [syncing, setSyncing] = useState(false);
+  const [opEventId, setOpEventId] = useState(null);
 
-  const [clients,    setClients]    = useState([]);
-  const [events,     setEvents]     = useState([]);
-  const [payments,   setPayments]   = useState([]);
-  const [costs,      setCosts]      = useState([]);
-  const [postventas, setPostventas] = useState([]);
+  const [clients,      setClients]      = useState([]);
+  const [events,       setEvents]       = useState([]);
+  const [payments,     setPayments]     = useState([]);
+  const [costs,        setCosts]        = useState([]);
+  const [postventas,   setPostventas]   = useState([]);
+  const [operaciones,  setOperaciones]  = useState([]);
+  const [recetas,      setRecetas]      = useState([]);
 
   const [eventModal,  setEventModal]  = useState(null);
   const [clientModal, setClientModal] = useState(null);
@@ -1008,14 +1469,16 @@ export default function App() {
     setLoading(true);
     sheetsGet()
       .then(data => {
-        if (data.clientes?.length)   setClients(data.clientes.map(parseClient));
-        if (data.eventos?.length)    setEvents(data.eventos.map(parseEvent));
-        if (data.pagos?.length)      setPayments(data.pagos.map(parsePayment));
-        if (data.costos?.length)     setCosts(data.costos.map(parseCost));
-        if (data.postventas?.length) setPostventas(data.postventas.map(parsePostventa));
+        if (data.clientes?.length)    setClients(data.clientes.map(parseClient));
+        if (data.eventos?.length)     setEvents(data.eventos.map(parseEvent));
+        if (data.pagos?.length)       setPayments(data.pagos.map(parsePayment));
+        if (data.costos?.length)      setCosts(data.costos.map(parseCost));
+        if (data.postventas?.length)  setPostventas(data.postventas.map(parsePostventa));
+        if (data.operaciones?.length) setOperaciones(data.operaciones.map(parseOp));
         setLoading(false);
       })
       .catch(err => { setLoadError(err.message); setLoading(false); });
+    sheetsPost({ action: "getRecetas" }).then(d => { if (d) setRecetas(d); }).catch(() => {});
   }, []);
 
   // Check existing session on mount
@@ -1074,6 +1537,10 @@ export default function App() {
     setClients(p => p.map(c => c.id === cl.id ? cl : c));
     sync("update", "Clientes", cl);
   };
+  const addOp    = op => { const n = { ...op, id: nextId(operaciones) }; setOperaciones(p => [...p, n]); sync("add", "Operaciones", n); };
+  const updateOp = op => { setOperaciones(p => p.map(o => o.id === op.id ? op : o)); sync("update", "Operaciones", op); };
+  const deleteOp = id => { setOperaciones(p => p.filter(o => o.id !== id)); sync("delete", "Operaciones", null, id); };
+
   const addPayment = p => {
     const n = { ...p, id: nextId(payments) };
     setPayments(prev => [...prev, n]);
@@ -1136,6 +1603,10 @@ export default function App() {
         {view === "dashboard" && <Dashboard events={events} clients={clients} payments={payments} costs={costs} setView={setView} setDetailEvent={setDetailEvent} />}
         {view === "pipeline"  && <Pipeline  events={events} onMove={moveStage} onCard={setDetailEvent} onNew={() => setEventModal("new")} />}
         {view === "clients"   && <Clients   clients={clients} events={events} onNew={() => setClientModal("new")} onEdit={setClientModal} />}
+        {view === "operaciones" && (opEventId
+          ? <OperacionDetalle ev={events.find(e => e.id === opEventId)} ops={operaciones.filter(o => o.eventId === opEventId)} recetas={recetas} onAdd={addOp} onUpdate={updateOp} onDelete={deleteOp} onBack={() => setOpEventId(null)} />
+          : <OperacionesList events={events} operaciones={operaciones} setOpEventId={setOpEventId} />
+        )}
         {view === "pagos"     && <Pagos     events={events} payments={payments} onAdd={addPayment} onDelete={deletePayment} />}
         {view === "postventa" && <PostVenta events={events} postventas={postventas} onSave={savePostventa} />}
         {view === "pyl"       && <PyL       events={events} payments={payments} costs={costs} onAddCost={addCost} onDeleteCost={deleteCost} />}
