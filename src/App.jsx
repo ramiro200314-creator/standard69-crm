@@ -456,11 +456,15 @@ function Clients({ clients, events, onNew, onEdit }) {
 // ─── Pagos ────────────────────────────────────────────────────────────────────
 function Pagos({ events, payments, onAdd, onDelete }) {
   const [showForm, setShowForm] = useState(false);
-  const [filterEv, setFilterEv] = useState("all");
-  const cobrado   = payments.filter(p => p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
-  const pendiente = payments.filter(p => p.status === "Pendiente").reduce((s, p) => s + p.amount, 0);
-  const vencido   = payments.filter(p => p.status === "Vencido").reduce((s, p) => s + p.amount, 0);
-  const filtered  = filterEv === "all" ? payments : payments.filter(p => p.eventId === parseInt(filterEv));
+  const curMesPagos = todayStr().slice(0, 7);
+  const [period, setPeriod] = useState(curMesPagos);
+  const months = useMemo(() => [...new Set(payments.map(p => p.date?.slice(0,7)).filter(Boolean))].sort().reverse(), [payments]);
+
+  const base      = period === "all" ? payments : payments.filter(p => (p.date || "").startsWith(period));
+  const cobrado   = base.filter(p => p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
+  const pendiente = base.filter(p => p.status === "Pendiente").reduce((s, p) => s + p.amount, 0);
+  const vencido   = base.filter(p => p.status === "Vencido").reduce((s, p) => s + p.amount, 0);
+  const filtered  = base;
   const evProgress = events.filter(e => e.amount > 0).map(ev => {
     const paid = payments.filter(p => p.eventId === ev.id && p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
     return { ...ev, paid };
@@ -472,7 +476,13 @@ function Pagos({ events, payments, onAdd, onDelete }) {
           <h1 style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.5rem", fontWeight: 400, color: "#EDE8DF", letterSpacing: "0.18em", textTransform: "uppercase", margin: 0 }}>Pagos</h1>
           <div style={{ color: "#555045", fontSize: "0.78rem", marginTop: 2 }}>{payments.length} registros</div>
         </div>
-        <button type="button" onClick={() => setShowForm(true)} style={S.btnP}>+ Registrar pago</button>
+        <div style={{ display: "flex", gap: "0.75rem" }}>
+          <select value={period} onChange={e => setPeriod(e.target.value)} style={{ ...S.inp, width: 190, textTransform: "capitalize" }}>
+            <option value="all">Todo el período</option>
+            {months.map(m => <option key={m} value={m}>{fmtMes(m)}</option>)}
+          </select>
+          <button type="button" onClick={() => setShowForm(true)} style={S.btnP}>+ Registrar pago</button>
+        </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "0.875rem", marginBottom: "1.75rem" }}>
         {[
@@ -503,12 +513,6 @@ function Pagos({ events, payments, onAdd, onDelete }) {
             </div>
           );
         })}
-      </div>
-      <div style={{ marginBottom: "1rem" }}>
-        <select value={filterEv} onChange={e => setFilterEv(e.target.value)} style={{ ...S.inp, width: 240 }}>
-          <option value="all">Todos los eventos</option>
-          {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
-        </select>
       </div>
       <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
