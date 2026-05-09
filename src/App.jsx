@@ -1381,11 +1381,11 @@ async function generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, line
 
   const BASE = "https://standard69-crm.vercel.app";
   const [b64Logo, b64Portada, b64Jardin, b64Mozo, b64Brindis] = await Promise.all([
-    imgToB64(`${BASE}/logo.png`),
-    imgToB64(`${BASE}/foto_portada.jpg`),
-    imgToB64(`${BASE}/foto_jardin.jpg`),
-    imgToB64(`${BASE}/foto_mozo.jpg`),
-    imgToB64(`${BASE}/foto_brindis.jpg`),
+    imgToB64(`${BASE}/STANDARD%20NEGRO.png`),
+    imgToB64(`${BASE}/FJ308033%20(2).jpg`),
+    imgToB64(`${BASE}/FJ308007%20(2)%20(4).jpg`),
+    imgToB64(`${BASE}/FJ301980%20(2).jpg`),
+    imgToB64(`${BASE}/IMG_0381.jpeg`),
   ]);
 
   const css = `@page{size:A4;margin:0}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#2a2520;font-size:13px}.page{width:210mm;min-height:297mm;position:relative;background:#F5F0E8;page-break-after:always;overflow:hidden}.ft{position:absolute;bottom:0;left:0;right:0;background:#1a1a18;color:#888;font-size:7.5px;letter-spacing:.18em;text-transform:uppercase;text-align:center;padding:11px 20px}
