@@ -1454,29 +1454,34 @@ function EventOpCard({ ev, ops, onClick }) {
 }
 
 function OperacionesList({ events, operaciones, setOpEventId }) {
-  const today = todayStr();
-  const sorted = [...events].sort((a,b) => a.date > b.date ? 1 : -1);
-  const upcoming = sorted.filter(e => e.date >= today);
-  const past = sorted.filter(e => e.date < today).reverse().slice(0, 20);
-  const sLabel = { fontSize: "0.58rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "#454035", marginBottom: "0.875rem", display: "block" };
+  const curMes = todayStr().slice(0, 7);
+  const [period, setPeriod] = useState(curMes);
+  const months = useMemo(() =>
+    [...new Set(events.map(e => e.date?.slice(0,7)).filter(Boolean))].sort().reverse(),
+    [events]);
+
+  const filtered = (period === "all" ? events : events.filter(e => (e.date || "").startsWith(period)))
+    .sort((a, b) => a.date > b.date ? 1 : -1);
+
   return (
     <div>
-      <div style={{ marginBottom: "2rem" }}>
-        <h1 style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.5rem", fontWeight: 400, color: "#EDE8DF", letterSpacing: "0.18em", textTransform: "uppercase", margin: 0 }}>Operaciones</h1>
-        <div style={{ color: "#3A3530", fontSize: "0.72rem", marginTop: 4, letterSpacing: "0.05em" }}>Gestión operativa por evento</div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "2rem" }}>
+        <div>
+          <h1 style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.5rem", fontWeight: 400, color: "#EDE8DF", letterSpacing: "0.18em", textTransform: "uppercase", margin: 0 }}>Operaciones</h1>
+          <div style={{ color: "#3A3530", fontSize: "0.72rem", marginTop: 4 }}>{filtered.length} evento{filtered.length !== 1 ? "s" : ""}</div>
+        </div>
+        <select value={period} onChange={e => setPeriod(e.target.value)}
+          style={{ ...S.inp, width: 190, textTransform: "capitalize" }}>
+          <option value="all">Todo el período</option>
+          {months.map(m => <option key={m} value={m}>{fmtMes(m)}</option>)}
+        </select>
       </div>
-      {upcoming.length > 0 && <>
-        <span style={sLabel}>Próximos</span>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: "0.875rem", marginBottom: "1.75rem" }}>
-          {upcoming.map(ev => <EventOpCard key={ev.id} ev={ev} ops={operaciones.filter(o => o.eventId === ev.id)} onClick={() => setOpEventId(ev.id)} />)}
-        </div>
-      </>}
-      {past.length > 0 && <>
-        <span style={sLabel}>Pasados</span>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: "0.875rem" }}>
-          {past.map(ev => <EventOpCard key={ev.id} ev={ev} ops={operaciones.filter(o => o.eventId === ev.id)} onClick={() => setOpEventId(ev.id)} />)}
-        </div>
-      </>}
+      {filtered.length === 0
+        ? <div style={{ ...S.card, textAlign: "center", color: "#3A3530", fontSize: "0.85rem", padding: "3rem" }}>Sin eventos para este período.</div>
+        : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: "0.875rem" }}>
+            {filtered.map(ev => <EventOpCard key={ev.id} ev={ev} ops={operaciones.filter(o => o.eventId === ev.id)} onClick={() => setOpEventId(ev.id)} />)}
+          </div>
+      }
     </div>
   );
 }
