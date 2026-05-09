@@ -1385,7 +1385,7 @@ async function generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, line
   const FOOTER = `S T A N D A R D  6 9 &nbsp;·&nbsp; V I L L A  W A R C A L D E &nbsp;·&nbsp; C Ó R D O B A`;
   const FOOTER_FULL = `${FOOTER} &nbsp;·&nbsp; A D M S T A N D A R D 6 9 W @ G M A I L . C O M &nbsp;·&nbsp; + 5 4 9 3 5 1 8 1 4 - 7 3 7 3`;
 
-  const BASE = "https://standard69-crm.vercel.app";
+  const BASE = window.location.origin;
   const [b64Logo, b64Portada, b64Jardin, b64Mozo, b64Brindis] = await Promise.all([
     imgToB64(`${BASE}/STANDARD%20NEGRO.png`),
     imgToB64(`${BASE}/FJ308033%20(2).jpg`),
@@ -1516,7 +1516,12 @@ function PropuestaModal({ ev, onClose }) {
       </div>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
         <button type="button" onClick={onClose} style={S.btnS}>Cancelar</button>
-        <button type="button" onClick={async () => { await generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, lineas }); onClose(); }} style={S.btnP}>Generar PDF</button>
+        <button type="button" onClick={async e => {
+          const btn = e.currentTarget;
+          btn.disabled = true; btn.textContent = "Cargando imágenes...";
+          try { await generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, lineas }); onClose(); }
+          catch(err) { alert("Error al generar: " + err.message); btn.disabled = false; btn.textContent = "Generar PDF"; }
+        }} style={S.btnP}>Generar PDF</button>
       </div>
     </Modal>
   );
