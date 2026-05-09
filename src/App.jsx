@@ -44,15 +44,18 @@ const parsePayment   = r => ({ ...r, id: toNum(r.id), eventId: toNum(r.eventId),
 const parseCost      = r => ({ ...r, id: toNum(r.id), eventId: r.eventId ? toNum(r.eventId) : null, amount: toNum(r.amount), date: toDate(r.date) });
 const parsePostventa = r => ({ ...r, eventId: toNum(r.eventId), rating: toNum(r.rating) });
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const GOLD = "#C9A84C";
+// ─── Brand ────────────────────────────────────────────────────────────────────
+const GOLD   = "#D39A59";   // Standard 69 brand gold
+const BEIGE  = "#B8A18F";   // Standard 69 beige
+const TEAL   = "#124A61";   // Standard 69 teal
+
 const STAGES = ["Consulta", "Cotización", "Confirmación", "Evento", "Post-venta"];
 const STAGE_COLORS = {
-  "Consulta":     { fg: "#94A3B8", bg: "rgba(148,163,184,0.10)", bd: "rgba(148,163,184,0.22)" },
-  "Cotización":   { fg: "#60A5FA", bg: "rgba(96,165,250,0.10)",  bd: "rgba(96,165,250,0.22)"  },
-  "Confirmación": { fg: "#C9A84C", bg: "rgba(201,168,76,0.10)",  bd: "rgba(201,168,76,0.22)"  },
-  "Evento":       { fg: "#34D399", bg: "rgba(52,211,153,0.10)",  bd: "rgba(52,211,153,0.22)"  },
-  "Post-venta":   { fg: "#A78BFA", bg: "rgba(167,139,250,0.10)", bd: "rgba(167,139,250,0.22)" },
+  "Consulta":     { fg: "#8A9AB0", bg: "rgba(138,154,176,0.10)", bd: "rgba(138,154,176,0.22)" },
+  "Cotización":   { fg: "#72899E", bg: "rgba(114,137,158,0.12)", bd: "rgba(114,137,158,0.25)" },
+  "Confirmación": { fg: "#D39A59", bg: "rgba(211,154,89,0.10)",  bd: "rgba(211,154,89,0.25)"  },
+  "Evento":       { fg: "#7EB89A", bg: "rgba(126,184,154,0.10)", bd: "rgba(126,184,154,0.25)" },
+  "Post-venta":   { fg: "#B8A18F", bg: "rgba(184,161,143,0.10)", bd: "rgba(184,161,143,0.25)" },
 };
 const EVENT_TYPES = ["Cumpleaños", "Corporativo", "Aniversario", "Cena privada", "Boda", "Otro"];
 const PAYMENT_METHODS = ["Transferencia", "Efectivo", "Débito", "Crédito", "Cheque"];
@@ -68,11 +71,11 @@ const sc       = s => STAGE_COLORS[s] || STAGE_COLORS["Consulta"];
 const todayStr = () => new Date().toISOString().split("T")[0];
 
 const S = {
-  card: { background: "#141414", border: "1px solid #1E1E1E", borderRadius: 10, padding: "1.25rem" },
-  inp:  { width: "100%", background: "#1A1A1A", border: "1px solid #252525", borderRadius: 6, color: "#F0EAD8", padding: "0.55rem 0.75rem", fontSize: "0.875rem", outline: "none", boxSizing: "border-box", fontFamily: "inherit" },
-  btnP: { padding: "0.55rem 1.25rem", background: GOLD, border: "none", borderRadius: 6, color: "#0A0A0A", fontSize: "0.825rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" },
-  btnS: { padding: "0.5rem 1rem", background: "#1A1A1A", border: "1px solid #252525", borderRadius: 6, color: "#9A9080", fontSize: "0.8rem", cursor: "pointer", fontFamily: "inherit" },
-  lbl:  { display: "block", fontSize: "0.62rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#555045", marginBottom: "0.35rem" },
+  card: { background: "#121210", border: "1px solid #1C1C18", borderRadius: 8, padding: "1.25rem" },
+  inp:  { width: "100%", background: "#181816", border: "1px solid #232320", borderRadius: 5, color: "#EDE8DF", padding: "0.55rem 0.75rem", fontSize: "0.875rem", outline: "none", boxSizing: "border-box", fontFamily: "inherit", letterSpacing: "0.01em" },
+  btnP: { padding: "0.55rem 1.4rem", background: GOLD, border: "none", borderRadius: 4, color: "#080808", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", letterSpacing: "0.08em", textTransform: "uppercase" },
+  btnS: { padding: "0.5rem 1rem", background: "#181816", border: "1px solid #232320", borderRadius: 4, color: "#7A7260", fontSize: "0.8rem", cursor: "pointer", fontFamily: "inherit" },
+  lbl:  { display: "block", fontSize: "0.58rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#454035", marginBottom: "0.4rem" },
 };
 
 function StageBadge({ stage }) {
@@ -91,7 +94,7 @@ function Modal({ title, onClose, children, wide }) {
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
       <div style={{ background: "#111", border: "1px solid #222", borderRadius: 12, width: "100%", maxWidth: wide ? 620 : 490, maxHeight: "90vh", overflowY: "auto", padding: "1.75rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-          <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.6rem", fontWeight: 600, color: "#F0EAD8", margin: 0 }}>{title}</h2>
+          <h2 style={{ fontFamily: "'Jost',sans-serif", fontSize: "1rem", fontWeight: 400, color: "#EDE8DF", letterSpacing: "0.15em", textTransform: "uppercase", margin: 0 }}>{title}</h2>
           <button type="button" onClick={onClose} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "1.75rem", lineHeight: 1 }}>×</button>
         </div>
         {children}
@@ -133,9 +136,12 @@ function AuthScreen({ onLogin }) {
   return (
     <div style={{ display: "flex", height: "100vh", background: "#0A0A0A", alignItems: "center", justifyContent: "center" }}>
       <div style={{ width: 360, padding: "2.5rem", background: "#111", border: "1px solid #1E1E1E", borderRadius: 14 }}>
-        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-          <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2rem", fontWeight: 700, color: GOLD, letterSpacing: "0.06em" }}>Standard 69</div>
-          <div style={{ fontSize: "0.62rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "#3A3530", marginTop: 4 }}>Event CRM</div>
+        <div style={{ textAlign: "center", marginBottom: "2.25rem" }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 5, marginBottom: 6 }}>
+            <span style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.25rem", fontWeight: 500, color: "#EDE8DF", letterSpacing: "0.3em", textTransform: "uppercase" }}>STANDARD</span>
+            <span style={{ fontFamily: "'Satisfy',cursive", fontSize: "1.5rem", color: GOLD }}>69</span>
+          </div>
+          <div style={{ fontSize: "0.55rem", letterSpacing: "0.25em", textTransform: "uppercase", color: "#3A3530" }}>Event CRM</div>
         </div>
 
         <div style={{ marginBottom: "1rem" }}>
@@ -173,10 +179,13 @@ function Sidebar({ view, setView, events, payments, syncing, user, onLogout }) {
   const active  = events.filter(e => e.stage !== "Post-venta").length;
   const pending = payments.filter(p => p.status === "Pendiente").length;
   return (
-    <aside style={{ width: 210, minWidth: 210, background: "#0D0D0D", borderRight: "1px solid #191919", display: "flex", flexDirection: "column", flexShrink: 0 }}>
+    <aside style={{ width: 210, minWidth: 210, background: "#090908", borderRight: "1px solid #171714", display: "flex", flexDirection: "column", flexShrink: 0 }}>
       <div style={{ padding: "1.5rem 1.25rem 1.25rem" }}>
-        <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.4rem", fontWeight: 700, color: GOLD, letterSpacing: "0.05em" }}>Standard 69</div>
-        <div style={{ fontSize: "0.58rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "#353030", marginTop: 3 }}>Event CRM</div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 3 }}>
+          <span style={{ fontFamily: "'Jost',sans-serif", fontSize: "0.95rem", fontWeight: 500, color: "#EDE8DF", letterSpacing: "0.25em", textTransform: "uppercase" }}>STANDARD</span>
+          <span style={{ fontFamily: "'Satisfy',cursive", fontSize: "1.1rem", color: GOLD, lineHeight: 1 }}>69</span>
+        </div>
+        <div style={{ fontSize: "0.55rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "#2E2A25", marginTop: 4 }}>Event CRM</div>
       </div>
       <nav style={{ flex: 1 }}>
         {NAV.map(n => (
@@ -197,7 +206,7 @@ function Sidebar({ view, setView, events, payments, syncing, user, onLogout }) {
       </nav>
       <div style={{ padding: "1rem 1.25rem", borderTop: "1px solid #181818" }}>
         <div style={S.lbl}>Eventos activos</div>
-        <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2.5rem", color: GOLD, lineHeight: 1, fontWeight: 600 }}>{active}</div>
+        <div style={{ fontFamily: "'Jost',sans-serif", fontSize: "2.2rem", color: GOLD, lineHeight: 1, fontWeight: 300 }}>{active}</div>
         <div style={{ fontSize: "0.68rem", color: "#3A3530", marginTop: 2 }}>en pipeline</div>
         {syncing && <div style={{ fontSize: "0.6rem", color: "#555045", marginTop: 6 }}>● sincronizando...</div>}
       </div>
@@ -228,7 +237,7 @@ function Dashboard({ events, clients, payments, costs, setView, setDetailEvent }
   return (
     <div>
       <div style={{ marginBottom: "2rem" }}>
-        <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2.25rem", fontWeight: 600, color: "#F0EAD8", margin: 0 }}>Dashboard</h1>
+        <h1 style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.5rem", fontWeight: 400, color: "#EDE8DF", letterSpacing: "0.18em", textTransform: "uppercase", margin: 0 }}>Dashboard</h1>
         <div style={{ color: "#555045", fontSize: "0.78rem", marginTop: 2 }}>Vista general · Standard 69</div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "0.875rem", marginBottom: "1.75rem" }}>
@@ -240,7 +249,7 @@ function Dashboard({ events, clients, payments, costs, setView, setDetailEvent }
         ].map((s, i) => (
           <div key={i} style={S.card}>
             <div style={S.lbl}>{s.lbl}</div>
-            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.875rem", fontWeight: 600, color: s.color || (s.gold ? GOLD : "#F0EAD8"), lineHeight: 1.1 }}>{s.val}</div>
+            <div style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.75rem", fontWeight: 300, color: s.color || (s.gold ? GOLD : "#F0EAD8"), lineHeight: 1.1 }}>{s.val}</div>
             <div style={{ fontSize: "0.68rem", color: "#4A4540", marginTop: 3 }}>{s.sub}</div>
           </div>
         ))}
@@ -288,7 +297,7 @@ function Dashboard({ events, clients, payments, costs, setView, setDetailEvent }
           })}
           <div style={{ marginTop: "0.875rem", paddingTop: "0.75rem", borderTop: "1px solid #181818" }}>
             <div style={{ ...S.lbl, marginBottom: "0.25rem" }}>Total pipeline</div>
-            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.3rem", color: GOLD, fontWeight: 600 }}>
+            <div style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.2rem", color: GOLD, fontWeight: 300 }}>
               {fmtARS(events.filter(e => e.stage !== "Post-venta").reduce((s, e) => s + e.amount, 0))}
             </div>
           </div>
@@ -304,7 +313,7 @@ function Pipeline({ events, onMove, onCard, onNew }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
         <div>
-          <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2.25rem", fontWeight: 600, color: "#F0EAD8", margin: 0 }}>Pipeline</h1>
+          <h1 style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.5rem", fontWeight: 400, color: "#EDE8DF", letterSpacing: "0.18em", textTransform: "uppercase", margin: 0 }}>Pipeline</h1>
           <div style={{ color: "#555045", fontSize: "0.78rem", marginTop: 2 }}>{events.filter(e => e.stage !== "Post-venta").length} eventos activos</div>
         </div>
         <button type="button" onClick={onNew} style={S.btnP}>+ Nuevo evento</button>
@@ -320,7 +329,7 @@ function Pipeline({ events, onMove, onCard, onNew }) {
                 <div style={{ padding: "0.55rem 0.75rem", marginBottom: "0.625rem", borderRadius: 8, background: c.bg, border: `1px solid ${c.bd}` }}>
                   <div style={{ fontSize: "0.62rem", letterSpacing: "0.1em", textTransform: "uppercase", color: c.fg, fontWeight: 600 }}>{stage}</div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 3 }}>
-                    <span style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.5rem", color: "#F0EAD8", fontWeight: 600 }}>{stEvs.length}</span>
+                    <span style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.4rem", color: "#EDE8DF", fontWeight: 300 }}>{stEvs.length}</span>
                     {total > 0 && <span style={{ fontSize: "0.62rem", color: "#555045" }}>{fmtARS(total)}</span>}
                   </div>
                 </div>
@@ -379,7 +388,7 @@ function Clients({ clients, events, onNew, onEdit }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
         <div>
-          <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2.25rem", fontWeight: 600, color: "#F0EAD8", margin: 0 }}>Clientes</h1>
+          <h1 style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.5rem", fontWeight: 400, color: "#EDE8DF", letterSpacing: "0.18em", textTransform: "uppercase", margin: 0 }}>Clientes</h1>
           <div style={{ color: "#555045", fontSize: "0.78rem", marginTop: 2 }}>{clients.length} contactos en base</div>
         </div>
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
@@ -445,7 +454,7 @@ function Pagos({ events, payments, onAdd, onDelete }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
         <div>
-          <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2.25rem", fontWeight: 600, color: "#F0EAD8", margin: 0 }}>Pagos</h1>
+          <h1 style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.5rem", fontWeight: 400, color: "#EDE8DF", letterSpacing: "0.18em", textTransform: "uppercase", margin: 0 }}>Pagos</h1>
           <div style={{ color: "#555045", fontSize: "0.78rem", marginTop: 2 }}>{payments.length} registros</div>
         </div>
         <button type="button" onClick={() => setShowForm(true)} style={S.btnP}>+ Registrar pago</button>
@@ -458,7 +467,7 @@ function Pagos({ events, payments, onAdd, onDelete }) {
         ].map((s, i) => (
           <div key={i} style={S.card}>
             <div style={S.lbl}>{s.lbl}</div>
-            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.875rem", fontWeight: 600, color: s.color, lineHeight: 1.1 }}>{s.val}</div>
+            <div style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.75rem", fontWeight: 300, color: s.color, lineHeight: 1.1 }}>{s.val}</div>
           </div>
         ))}
       </div>
@@ -589,7 +598,7 @@ function PostVenta({ events, postventas, onSave }) {
   return (
     <div>
       <div style={{ marginBottom: "2rem" }}>
-        <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2.25rem", fontWeight: 600, color: "#F0EAD8", margin: 0 }}>Post-venta</h1>
+        <h1 style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.5rem", fontWeight: 400, color: "#EDE8DF", letterSpacing: "0.18em", textTransform: "uppercase", margin: 0 }}>Post-venta</h1>
         <div style={{ color: "#555045", fontSize: "0.78rem", marginTop: 2 }}>{pvEvents.length} eventos completados</div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "0.875rem", marginBottom: "1.75rem" }}>
@@ -600,7 +609,7 @@ function PostVenta({ events, postventas, onSave }) {
         ].map((s, i) => (
           <div key={i} style={S.card}>
             <div style={S.lbl}>{s.lbl}</div>
-            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.875rem", fontWeight: 600, color: s.gold ? GOLD : "#F0EAD8", lineHeight: 1.1 }}>{s.val}</div>
+            <div style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.75rem", fontWeight: 300, color: s.gold ? GOLD : "#F0EAD8", lineHeight: 1.1 }}>{s.val}</div>
             <div style={{ fontSize: "0.68rem", color: "#4A4540", marginTop: 3 }}>{s.sub}</div>
           </div>
         ))}
@@ -683,7 +692,7 @@ function PyL({ events, payments, costs, onAddCost, onDeleteCost }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
         <div>
-          <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2.25rem", fontWeight: 600, color: "#F0EAD8", margin: 0 }}>P & L</h1>
+          <h1 style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.5rem", fontWeight: 400, color: "#EDE8DF", letterSpacing: "0.18em", textTransform: "uppercase", margin: 0 }}>P & L</h1>
           <div style={{ color: "#555045", fontSize: "0.78rem", marginTop: 2 }}>Resultados · Standard 69</div>
         </div>
         <div style={{ display: "flex", gap: "0.75rem" }}>
@@ -703,7 +712,7 @@ function PyL({ events, payments, costs, onAddCost, onDeleteCost }) {
         ].map((s, i) => (
           <div key={i} style={S.card}>
             <div style={S.lbl}>{s.lbl}</div>
-            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.7rem", fontWeight: 600, color: s.color, lineHeight: 1.1 }}>{s.val}</div>
+            <div style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.6rem", fontWeight: 300, color: s.color, lineHeight: 1.1 }}>{s.val}</div>
             {s.sub && <div style={{ fontSize: "0.68rem", color: "#4A4540", marginTop: 3 }}>{s.sub}</div>}
           </div>
         ))}
@@ -1081,17 +1090,23 @@ export default function App() {
   };
 
   if (!authChecked) return (
-    <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "#0A0A0A" }}>
-      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2rem", color: GOLD }}>Standard 69</div>
+    <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "#080808" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+        <span style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.1rem", fontWeight: 500, color: "#EDE8DF", letterSpacing: "0.28em", textTransform: "uppercase" }}>STANDARD</span>
+        <span style={{ fontFamily: "'Satisfy',cursive", fontSize: "1.35rem", color: GOLD }}>69</span>
+      </div>
     </div>
   );
 
   if (!user) return <AuthScreen onLogin={handleLogin} />;
 
   if (loading) return (
-    <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "#0A0A0A", flexDirection: "column", gap: "1rem" }}>
-      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2rem", color: GOLD }}>Standard 69</div>
-      <div style={{ fontSize: "0.75rem", color: "#555045", letterSpacing: "0.1em" }}>Cargando datos...</div>
+    <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "#080808", flexDirection: "column", gap: "1rem" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+        <span style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.1rem", fontWeight: 500, color: "#EDE8DF", letterSpacing: "0.28em", textTransform: "uppercase" }}>STANDARD</span>
+        <span style={{ fontFamily: "'Satisfy',cursive", fontSize: "1.35rem", color: GOLD }}>69</span>
+      </div>
+      <div style={{ fontSize: "0.6rem", color: "#3A3530", letterSpacing: "0.15em", textTransform: "uppercase" }}>Cargando datos</div>
     </div>
   );
 
@@ -1104,7 +1119,7 @@ export default function App() {
   );
 
   return (
-    <div style={{ display: "flex", height: "100vh", background: "#0A0A0A", fontFamily: "'DM Sans',sans-serif", color: "#F0EAD8" }}>
+    <div style={{ display: "flex", height: "100vh", background: "#080808", fontFamily: "'Jost',sans-serif", color: "#EDE8DF" }}>
       <Sidebar view={view} setView={setView} events={events} payments={payments} syncing={syncing} user={user} onLogout={handleLogout} />
       <main style={{ flex: 1, overflowY: "auto", padding: "2rem", minWidth: 0 }}>
         {view === "dashboard" && <Dashboard events={events} clients={clients} payments={payments} costs={costs} setView={setView} setDetailEvent={setDetailEvent} />}
