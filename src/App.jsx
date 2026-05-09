@@ -40,7 +40,7 @@ const toDate = v => {
 };
 const parseClient    = r => ({ ...r, id: toNum(r.id), canal: r.canal || "" });
 const parseEvent     = r => ({ ...r, id: toNum(r.id), clientId: toNum(r.clientId), guests: toNum(r.guests), amount: toNum(r.amount), date: toDate(r.date) });
-const parsePayment   = r => ({ ...r, id: toNum(r.id), eventId: toNum(r.eventId), amount: toNum(r.amount), date: toDate(r.date) });
+const parsePayment   = r => ({ ...r, id: toNum(r.id), eventId: toNum(r.eventId), amount: toNum(r.amount), date: toDate(r.date), comprobante: r.comprobante || "" });
 const parseCost      = r => ({ ...r, id: toNum(r.id), eventId: r.eventId ? toNum(r.eventId) : null, amount: toNum(r.amount), date: toDate(r.date) });
 const parsePostventa = r => ({ ...r, eventId: toNum(r.eventId), rating: toNum(r.rating) });
 const parsePersonal  = r => ({ ...r, id: toNum(r.id), tarifaEvento: toNum(r.tarifaEvento) });
@@ -454,29 +454,152 @@ function Clients({ clients, events, onNew, onEdit }) {
 }
 
 // ─── Pagos ────────────────────────────────────────────────────────────────────
-function Pagos({ events, payments, onAdd, onDelete }) {
+function PagoForm({ ev, pago, events, onSave, onClose }) {
+  const blank = { eventId: ev ? ev.id : "", concept: "Seña", amount: "", method: "Transferencia", date: todayStr(), status: "Pagado", comprobante: "", notes: "" };
+  const [f, setF] = useState(pago ? { ...pago } : blank);
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+  const submit = () => {
+    if (!f.amount) { alert("Ingresá el monto."); return; }
+    onSave({ ...f, eventId: Number(f.eventId || ev?.id), amount: parseFloat(f.amount) });
+  };
+  return (
+    <Modal title={pago ? "Editar pago" : "Registrar pago"} onClose={onClose}>
+      {!ev && (
+        <Field label="Evento *">
+          <select value={f.eventId} onChange={e => set("eventId", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+            <option value="">Seleccionar evento...</option>
+            {(events || []).map(ev => <option key={ev.id} value={ev.id}>{ev.title} — {ev.clientName}</option>)}
+          </select>
+        </Field>
+      )}
+      <div style={{ display: "flex", gap: "1rem" }}>
+        <Field label="Concepto" half>
+          <select value={f.concept} onChange={e => set("concept", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+            {PAYMENT_CONCEPTS.map(c => <option key={c}>{c}</option>)}
+          </select>
+        </Field>
+        <Field label="Estado" half>
+          <select value={f.status} onChange={e => set("status", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+            {["Pagado","Pendiente","Vencido"].map(s => <option key={s}>{s}</option>)}
+          </select>
+        </Field>
+      </div>
+      <div style={{ display: "flex", gap: "1rem" }}>
+        <Field label="Monto (ARS) *" half>
+          <input type="number" value={f.amount} onChange={e => set("amount", e.target.value)} style={S.inp} placeholder="0" />
+        </Field>
+        <Field label="Fecha" half>
+          <input type="date" value={f.date} onChange={e => set("date", e.target.value)} style={S.inp} />
+        </Field>
+      </div>
+      <Field label="Método de pago">
+        <select value={f.method} onChange={e => set("method", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+          {PAYMENT_METHODS.map(m => <option key={m}>{m}</option>)}
+        </select>
+      </Field>
+      <Field label="Comprobante / Factura">
+        <input value={f.comprobante || ""} onChange={e => set("comprobante", e.target.value)} style={S.inp} placeholder="Nro. factura, link de Drive o referencia..." />
+        {f.comprobante && (f.comprobante.startsWith("http") ? (
+          <a href={f.comprobante} target="_blank" rel="noreferrer" style={{ fontSize: "0.7rem", color: "#7EB89A", display: "block", marginTop: 4 }}>↗ Ver archivo adjunto</a>
+        ) : null)}
+      </Field>
+      <Field label="Notas">
+        <textarea value={f.notes || ""} onChange={e => set("notes", e.target.value)} style={{ ...S.inp, minHeight: 50, resize: "vertical" }} placeholder="Observaciones..." />
+      </Field>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.625rem", marginTop: "0.5rem" }}>
+        <button type="button" onClick={onClose} style={S.btnS}>Cancelar</button>
+        <button type="button" onClick={submit} style={S.btnP}>Guardar</button>
+      </div>
+    </Modal>
+  );
+}
+
+function PagoEvento({ ev, evPayments, onAdd, onUpdate, onDelete }) {
+  const [open, setOpen] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
+  const [editPago, setEditPago] = useState(null);
+  const cobrado  = evPayments.filter(p => p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
+  const pendiente= evPayments.filter(p => p.status === "Pendiente").reduce((s, p) => s + p.amount, 0);
+  const pct      = ev.amount ? Math.min(100, Math.round(cobrado / ev.amount * 100)) : 0;
+  const SC       = { "Pagado": "#7EB89A", "Pendiente": GOLD, "Vencido": "#D05050" };
+  return (
+    <div style={{ ...S.card, marginBottom: "0.75rem", padding: 0, overflow: "hidden" }}>
+      <div onClick={() => setOpen(o => !o)} style={{ padding: "1rem 1.25rem", cursor: "pointer" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+          <div style={{ fontSize: "0.875rem", color: "#F0EAD8", fontWeight: 500 }}>
+            {ev.title} <span style={{ fontSize: "0.72rem", color: "#555045", fontWeight: 400 }}>· {ev.clientName}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <span style={{ fontSize: "0.68rem", color: "#3A3530" }}>{fmtD(ev.date)}</span>
+            <span style={{ fontSize: "0.68rem", color: "#3A3530" }}>{open ? "▲" : "▼"}</span>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.875rem" }}>
+          <div style={{ flex: 1, background: "#1A1A1A", borderRadius: 4, height: 5 }}>
+            <div style={{ width: `${pct}%`, height: "100%", background: pct === 100 ? "#34D399" : GOLD, borderRadius: 4 }} />
+          </div>
+          <span style={{ fontSize: "0.7rem", color: GOLD, flexShrink: 0 }}>{fmtARS(cobrado)}{ev.amount ? ` / ${fmtARS(ev.amount)}` : ""}</span>
+          {pendiente > 0 && <span style={{ fontSize: "0.68rem", color: "#7A6050" }}>· {fmtARS(pendiente)} pend.</span>}
+          <span style={{ fontSize: "0.65rem", color: "#3A3530" }}>{evPayments.length} pago{evPayments.length !== 1 ? "s" : ""}</span>
+        </div>
+      </div>
+      {open && (
+        <div style={{ borderTop: "1px solid #1C1C18", padding: "0.75rem 1.25rem 1rem" }}>
+          {evPayments.length === 0 && <div style={{ fontSize: "0.8rem", color: "#3A3530", marginBottom: "0.75rem" }}>Sin pagos registrados.</div>}
+          {evPayments.map(p => {
+            const col = SC[p.status] || "#555045";
+            return (
+              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: "0.625rem", padding: "0.5rem 0", borderBottom: "1px solid #141412", flexWrap: "wrap" }}>
+                <span style={{ fontSize: "0.8rem", color: "#EDE8DF", minWidth: 90 }}>{p.concept}</span>
+                <span style={{ fontSize: "0.875rem", color: GOLD, fontWeight: 500, minWidth: 120 }}>{fmtARS(p.amount)}</span>
+                <span style={{ fontSize: "0.72rem", color: "#6A6055" }}>{fmtD(p.date)}</span>
+                <span style={{ fontSize: "0.72rem", color: "#6A6055" }}>{p.method}</span>
+                <span style={{ fontSize: "0.67rem", color: col, background: `${col}18`, border: `1px solid ${col}28`, padding: "2px 8px", borderRadius: 12 }}>{p.status}</span>
+                {p.comprobante && (
+                  p.comprobante.startsWith("http")
+                    ? <a href={p.comprobante} target="_blank" rel="noreferrer" style={{ fontSize: "0.68rem", color: "#7EB89A" }}>📎 Comprobante</a>
+                    : <span style={{ fontSize: "0.68rem", color: "#6A6055" }}>📄 {p.comprobante}</span>
+                )}
+                <div style={{ marginLeft: "auto", display: "flex", gap: "0.35rem" }}>
+                  <button type="button" onClick={() => setEditPago(p)} style={{ ...S.btnS, padding: "0.2rem 0.6rem", fontSize: "0.68rem" }}>Editar</button>
+                  <button type="button" onClick={() => { if (confirm("¿Eliminar pago?")) onDelete(p.id); }} style={{ ...S.btnS, padding: "0.2rem 0.5rem", fontSize: "0.68rem", color: "#D05050", borderColor: "rgba(208,80,80,0.2)" }}>×</button>
+                </div>
+              </div>
+            );
+          })}
+          <div style={{ marginTop: "0.75rem" }}>
+            <button type="button" onClick={() => setShowAdd(true)} style={{ ...S.btnS, fontSize: "0.75rem", color: GOLD, borderColor: "rgba(211,154,89,0.25)" }}>+ Agregar pago</button>
+          </div>
+        </div>
+      )}
+      {showAdd && <PagoForm ev={ev} onSave={d => { onAdd({ ...d, eventId: ev.id }); setShowAdd(false); }} onClose={() => setShowAdd(false)} />}
+      {editPago && <PagoForm ev={ev} pago={editPago} onSave={d => { onUpdate(d); setEditPago(null); }} onClose={() => setEditPago(null)} />}
+    </div>
+  );
+}
+
+function Pagos({ events, payments, onAdd, onUpdate, onDelete }) {
   const [showForm, setShowForm] = useState(false);
   const curMesPagos = todayStr().slice(0, 7);
   const [period, setPeriod] = useState(curMesPagos);
-  const months = useMemo(() => [...new Set(payments.map(p => p.date?.slice(0,7)).filter(Boolean))].sort().reverse(), [payments]);
+  const months = useMemo(() => {
+    const fromEvs = events.map(e => e.date?.slice(0,7));
+    const fromPays = payments.map(p => p.date?.slice(0,7));
+    return [...new Set([...fromEvs, ...fromPays].filter(Boolean))].sort().reverse();
+  }, [events, payments]);
 
-  const base      = period === "all" ? payments : payments.filter(p => (p.date || "").startsWith(period));
-  const cobrado   = base.filter(p => p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
-  const pendiente = base.filter(p => p.status === "Pendiente").reduce((s, p) => s + p.amount, 0);
-  const vencido   = base.filter(p => p.status === "Vencido").reduce((s, p) => s + p.amount, 0);
-  const filtered  = base;
-  const evIdsEnPeriodo = new Set(base.map(p => p.eventId));
-  const evProgress = events.filter(e => e.amount > 0 && (period === "all" || evIdsEnPeriodo.has(e.id))).map(ev => {
-    const paid    = base.filter(p => p.eventId === ev.id && p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
-    const pending = base.filter(p => p.eventId === ev.id && p.status === "Pendiente").reduce((s, p) => s + p.amount, 0);
-    return { ...ev, paid, pending };
-  });
+  const eventsInPeriod = period === "all" ? events : events.filter(e => (e.date || "").startsWith(period));
+  const paymentsInPeriod = period === "all" ? payments : payments.filter(p => (p.date || "").startsWith(period));
+  const cobrado   = paymentsInPeriod.filter(p => p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
+  const pendiente = paymentsInPeriod.filter(p => p.status === "Pendiente").reduce((s, p) => s + p.amount, 0);
+  const vencido   = paymentsInPeriod.filter(p => p.status === "Vencido").reduce((s, p) => s + p.amount, 0);
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
         <div>
           <h1 style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.5rem", fontWeight: 400, color: "#EDE8DF", letterSpacing: "0.18em", textTransform: "uppercase", margin: 0 }}>Pagos</h1>
-          <div style={{ color: "#555045", fontSize: "0.78rem", marginTop: 2 }}>{payments.length} registros</div>
+          <div style={{ color: "#555045", fontSize: "0.78rem", marginTop: 2 }}>{eventsInPeriod.length} eventos · {paymentsInPeriod.length} pagos</div>
         </div>
         <div style={{ display: "flex", gap: "0.75rem" }}>
           <select value={period} onChange={e => setPeriod(e.target.value)} style={{ ...S.inp, width: 190, textTransform: "capitalize" }}>
@@ -488,9 +611,9 @@ function Pagos({ events, payments, onAdd, onDelete }) {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "0.875rem", marginBottom: "1.75rem" }}>
         {[
-          { lbl: "Total cobrado", val: fmtARS(cobrado),   color: "#34D399" },
-          { lbl: "Pendiente",     val: fmtARS(pendiente), color: GOLD },
-          { lbl: "Vencido",       val: fmtARS(vencido),   color: "#D05050" },
+          { lbl: "Cobrado", val: fmtARS(cobrado), color: "#34D399" },
+          { lbl: "Pendiente", val: fmtARS(pendiente), color: GOLD },
+          { lbl: "Vencido", val: fmtARS(vencido), color: "#D05050" },
         ].map((s, i) => (
           <div key={i} style={S.card}>
             <div style={S.lbl}>{s.lbl}</div>
@@ -498,70 +621,20 @@ function Pagos({ events, payments, onAdd, onDelete }) {
           </div>
         ))}
       </div>
-      <div style={{ ...S.card, marginBottom: "1.5rem" }}>
-        <div style={{ fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6A6055", marginBottom: "1rem" }}>
-          Progreso de cobro por evento {period !== "all" && <span style={{ color: "#3A3530" }}>· {fmtMes(period)}</span>}
-        </div>
-        {evProgress.length === 0 && <div style={{ color: "#4A4540", fontSize: "0.875rem" }}>{period === "all" ? "Sin eventos con monto asignado" : "Sin pagos registrados en este período"}</div>}
-        {evProgress.map(ev => {
-          const pct = Math.min(100, Math.round((ev.paid / ev.amount) * 100));
-          return (
-            <div key={ev.id} style={{ marginBottom: "0.875rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ fontSize: "0.8rem", color: "#F0EAD8" }}>{ev.title} <span style={{ color: "#555045" }}>· {ev.clientName}</span></span>
-                <span style={{ fontSize: "0.75rem", color: GOLD }}>{fmtARS(ev.paid)} cobrado{ev.pending > 0 ? ` · ${fmtARS(ev.pending)} pendiente` : ""}</span>
-              </div>
-              <div style={{ background: "#1A1A1A", borderRadius: 4, height: 6 }}>
-                <div style={{ width: `${pct}%`, height: "100%", background: pct === 100 ? "#34D399" : GOLD, borderRadius: 4 }} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ borderBottom: "1px solid #1A1A1A" }}>
-              {["Evento / Cliente","Concepto","Monto","Método","Fecha","Estado",""].map(h => (
-                <th key={h} style={{ padding: "0.7rem 1rem", textAlign: "left", fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#454035", fontWeight: 500 }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 && <tr><td colSpan={7} style={{ padding: "2rem", textAlign: "center", color: "#4A4540", fontSize: "0.875rem" }}>Sin pagos registrados</td></tr>}
-            {filtered.map(p => {
-              const ev = events.find(e => e.id === p.eventId);
-              const col = p.status === "Pagado" ? "#34D399" : p.status === "Vencido" ? "#D05050" : GOLD;
-              return (
-                <tr key={p.id} style={{ borderBottom: "1px solid #161616" }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#121212"}
-                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                  <td style={{ padding: "0.875rem 1rem" }}>
-                    <div style={{ fontSize: "0.825rem", color: "#F0EAD8" }}>{ev?.title || "—"}</div>
-                    <div style={{ fontSize: "0.7rem", color: "#555045" }}>{ev?.clientName || ""}</div>
-                  </td>
-                  <td style={{ padding: "0.875rem 1rem", fontSize: "0.8rem", color: "#B0A898" }}>{p.concept}</td>
-                  <td style={{ padding: "0.875rem 1rem", fontSize: "0.875rem", color: GOLD, fontWeight: 500 }}>{fmtARS(p.amount)}</td>
-                  <td style={{ padding: "0.875rem 1rem", fontSize: "0.8rem", color: "#7A7068" }}>{p.method}</td>
-                  <td style={{ padding: "0.875rem 1rem", fontSize: "0.8rem", color: "#7A7068" }}>{fmtD(p.date)}</td>
-                  <td style={{ padding: "0.875rem 1rem" }}>
-                    <span style={{ fontSize: "0.65rem", padding: "2px 9px", borderRadius: 12, background: `${col}18`, color: col }}>{p.status}</span>
-                  </td>
-                  <td style={{ padding: "0.875rem 1rem" }}>
-                    <button type="button" onClick={() => onDelete(p.id)} style={{ ...S.btnS, padding: "0.3rem 0.6rem", fontSize: "0.72rem", color: "#D05050", borderColor: "rgba(208,80,80,0.25)" }}>×</button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      {showForm && <PaymentForm events={events} onSave={d => { onAdd(d); setShowForm(false); }} onClose={() => setShowForm(false)} />}
+      {eventsInPeriod.length === 0
+        ? <div style={{ ...S.card, textAlign: "center", color: "#3A3530", fontSize: "0.85rem", padding: "3rem" }}>Sin eventos para este período.</div>
+        : eventsInPeriod.sort((a, b) => a.date > b.date ? 1 : -1).map(ev => (
+            <PagoEvento key={ev.id} ev={ev}
+              evPayments={payments.filter(p => p.eventId === ev.id)}
+              onAdd={onAdd} onUpdate={onUpdate} onDelete={onDelete} />
+          ))
+      }
+      {showForm && <PagoForm events={events} onSave={d => { onAdd(d); setShowForm(false); }} onClose={() => setShowForm(false)} />}
     </div>
   );
 }
 
-function PaymentForm({ events, onSave, onClose }) {
+function _PaymentFormOld({ events, onSave, onClose }) {
   const [f, setF] = useState({ eventId: "", concept: "Seña", amount: "", method: "Transferencia", date: todayStr(), status: "Pagado", notes: "" });
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
   const submit = () => {
@@ -2124,6 +2197,10 @@ export default function App() {
     setPayments(prev => [...prev, n]);
     sync("add", "Pagos", n);
   };
+  const updatePayment = p => {
+    setPayments(prev => prev.map(x => x.id === p.id ? p : x));
+    sync("update", "Pagos", p);
+  };
   const deletePayment = id => {
     setPayments(p => p.filter(x => x.id !== id));
     sync("delete", "Pagos", null, id);
@@ -2189,7 +2266,7 @@ export default function App() {
           : <OperacionesList events={events} operaciones={operaciones} setOpEventId={setOpEventId} />
         )}
         {view === "personal"  && <PersonalModule personal={personalDB} onAdd={addPersonal} onUpdate={updatePersonal} onDelete={deletePersonal} />}
-        {view === "pagos"     && <Pagos     events={events} payments={payments} onAdd={addPayment} onDelete={deletePayment} />}
+        {view === "pagos"     && <Pagos     events={events} payments={payments} onAdd={addPayment} onUpdate={updatePayment} onDelete={deletePayment} />}
         {view === "postventa" && <PostVenta events={events} postventas={postventas} onSave={savePostventa} />}
         {view === "pyl"       && <PyL       events={events} payments={payments} costs={costs} onAddCost={addCost} onDeleteCost={deleteCost} />}
       </main>
