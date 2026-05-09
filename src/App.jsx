@@ -1194,8 +1194,8 @@ function MenuTab({ ev, platos, ings, recetas, onAdd, onAddBulk, onUpdate, onDele
     .map(n => ({ nombre: n, ingredientes: [] }));
   const candidatos = [...recetas, ...platosEstandar];
   const filtered = busca
-    ? candidatos.filter(r => r.nombre.toLowerCase().includes(busca.toLowerCase())).slice(0, 10)
-    : [];
+    ? candidatos.filter(r => r.nombre.toLowerCase().includes(busca.toLowerCase())).slice(0, 12)
+    : candidatos.slice(0, 12);
 
   const agregarPlato = (nombre, tipo, porciones, ingsFn) => {
     onAdd({ eventId: ev.id, tipo: "plato", campo1: nombre, campo2: tipo, campo3: String(porciones), campo4: "", campo5: "", orden: platos.length + 1 });
@@ -1260,22 +1260,25 @@ function MenuTab({ ev, platos, ings, recetas, onAdd, onAddBulk, onUpdate, onDele
             </div>
           )}
           <div style={{ marginBottom: "0.75rem" }}>
-            <label style={S.lbl}>Buscar plato individual</label>
-            <input value={busca} onChange={e => { setBusca(e.target.value); setSelec(""); }} placeholder="Escribí el nombre del plato..." style={S.inp} />
-            {filtered.length > 0 && (
-              <div style={{ background: "#181816", border: "1px solid #232320", borderRadius: 5, marginTop: 4, maxHeight: 180, overflowY: "auto" }}>
+            <label style={S.lbl}>Plato{busca && !selec ? ` — filtrando por "${busca}"` : ""}</label>
+            <input value={busca} onChange={e => { setBusca(e.target.value); setSelec(""); }} placeholder="Buscar o escribir nombre del plato..." style={S.inp} />
+            {!selec && filtered.length > 0 && (
+              <div style={{ background: "#181816", border: "1px solid #232320", borderRadius: 5, marginTop: 4, maxHeight: 200, overflowY: "auto" }}>
                 {filtered.map((r, i) => (
                   <div key={i} onClick={() => { setSelec(r.nombre); setBusca(r.nombre); }}
-                    style={{ padding: "0.5rem 0.75rem", cursor: "pointer", fontSize: "0.8rem", color: selec === r.nombre ? GOLD : "#EDE8DF", background: selec === r.nombre ? "rgba(211,154,89,0.08)" : "transparent" }}>
+                    style={{ padding: "0.5rem 0.75rem", cursor: "pointer", fontSize: "0.8rem", color: "#EDE8DF", background: "transparent",
+                      borderBottom: i < filtered.length - 1 ? "1px solid #1A1A18" : "none" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "rgba(211,154,89,0.07)"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                     {r.nombre}
-                    {r.ingredientes?.length > 0 && <span style={{ fontSize: "0.65rem", color: "#3A3530", marginLeft: 6 }}>· {r.ingredientes.length} ingredientes</span>}
+                    {r.ingredientes?.length > 0 && <span style={{ fontSize: "0.65rem", color: "#3A3530", marginLeft: 6 }}>· {r.ingredientes.length} ing.</span>}
                   </div>
                 ))}
               </div>
             )}
-            {busca && filtered.length === 0 && (
+            {busca && !selec && filtered.length === 0 && (
               <div style={{ fontSize: "0.72rem", color: "#454035", marginTop: 6, padding: "0.5rem 0.75rem" }}>
-                Sin resultados para "{busca}". Podés agregarlo igual escribiendo el nombre y haciendo click en Agregar.
+                Sin resultados — se va a agregar como plato nuevo.
               </div>
             )}
           </div>
