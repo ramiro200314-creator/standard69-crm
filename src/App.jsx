@@ -61,7 +61,7 @@ const STAGE_COLORS = {
 const EVENT_TYPES = ["Cumpleaños", "Corporativo", "Aniversario", "Cena privada", "Boda", "Otro"];
 const PAYMENT_METHODS = ["Transferencia", "Efectivo", "Débito", "Crédito", "Cheque"];
 const PAYMENT_CONCEPTS = ["Seña", "Cuota 1", "Cuota 2", "Saldo", "Pago total", "Otro"];
-const COST_CATS = ["Personal", "Insumos / Bebidas", "Alquiler salón", "Decoración", "Audio / Video", "Catering extra", "Transporte", "Marketing", "Otro"];
+const COST_CATS = ["Personal", "Mercaderías", "Bebidas", "Insumos / Bebidas", "Alquiler salón", "Decoración", "Audio / Video", "Catering extra", "Transporte", "Marketing", "Impuestos", "Previsiones", "Otro"];
 
 const fmtARS   = n => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n || 0);
 const fmtD     = d => d ? new Date(d + "T00:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "short" }) : "—";
@@ -765,115 +765,268 @@ function PostVenta({ events, postventas, onSave }) {
 }
 
 // ─── P & L ────────────────────────────────────────────────────────────────────
-const fmtMes = m => {
-  const [y, mo] = m.split("-");
-  return new Date(Number(y), Number(mo) - 1, 1).toLocaleDateString("es-AR", { month: "long", year: "numeric" });
+const fmtMes     = m => new Date(m + "-01T00:00:00").toLocaleDateString("es-AR", { month: "long", year: "numeric" });
+const fmtMesCorto = m => new Date(m + "-01T00:00:00").toLocaleDateString("es-AR", { month: "short", year: "2-digit" });
+
+const addMonths = (ym, n) => {
+  const [y, mo] = ym.split("-").map(Number);
+  const d = new Date(y, mo - 1 + n, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+const monthsInRange = (from, to) => {
+  if (!from || !to || from > to) return [];
+  const result = [];
+  let cur = from;
+  while (cur <= to && result.length < 12) { result.push(cur); cur = addMonths(cur, 1); }
+  return result;
 };
 
+const PYL_ROWS = [
+  { type: "revenue",  key: "ventas",    label: "Ventas" },
+  { type: "sep" },
+  { type: "header",   label: "Costo de ventas" },
+  { type: "cost",     key: "merch",     label: "Mercaderías",         indent: true },
+  { type: "cost",     key: "bebidas",   label: "Bebidas",             indent: true },
+  { type: "subtotal", key: "cdv",       label: "Total costo de ventas" },
+  { type: "sep" },
+  { type: "result",   key: "utilBruta", label: "Utilidad bruta",      bold: true },
+  { type: "pct",      key: "utilBruta", label: "% Margen bruto" },
+  { type: "sep" },
+  { type: "cost",     key: "publi",     label: "Gastos de publicidad" },
+  { type: "cost",     key: "sueldos",   label: "Sueldos" },
+  { type: "cost",     key: "otros",     label: "Otros costos" },
+  { type: "sep" },
+  { type: "cost",     key: "impuestos", label: "Impuestos" },
+  { type: "cost",     key: "prev",      label: "Previsiones" },
+  { type: "sep" },
+  { type: "result",   key: "neto",      label: "Resultado neto",      bold: true, highlight: true },
+  { type: "pct",      key: "neto",      label: "% Margen neto" },
+];
+
 function PyL({ events, payments, costs, onAddCost, onDeleteCost }) {
-  const [showForm, setShowForm] = useState(false);
   const curMes = todayStr().slice(0, 7);
-  const [period, setPeriod] = useState(curMes);
-  const months = useMemo(() => [...new Set(events.map(e => e.date?.slice(0,7)).filter(Boolean))].sort().reverse(), [events]);
-  const filteredEvIds = useMemo(() => {
-    if (period === "all") return new Set(events.map(e => e.id));
-    return new Set(events.filter(e => e.date?.slice(0,7) === period).map(e => e.id));
-  }, [events, period]);
-  const revenue    = events.filter(e => filteredEvIds.has(e.id) && ["Confirmación","Evento","Post-venta"].includes(e.stage)).reduce((s, e) => s + e.amount, 0);
-  const collected  = payments.filter(p => filteredEvIds.has(p.eventId) && p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
-  const totalCosts = costs.filter(c => !c.eventId || filteredEvIds.has(c.eventId)).reduce((s, c) => s + c.amount, 0);
-  const gross  = revenue - totalCosts;
-  const margin = revenue > 0 ? ((gross / revenue) * 100).toFixed(1) : "—";
-  const byCat = COST_CATS.map(cat => ({ cat, total: costs.filter(c => c.category === cat && (!c.eventId || filteredEvIds.has(c.eventId))).reduce((s, c) => s + c.amount, 0) })).filter(x => x.total > 0);
-  const chartData = months.slice(0, 6).reverse().map(m => {
-    const rev  = events.filter(e => e.date?.slice(0,7) === m && ["Confirmación","Evento","Post-venta"].includes(e.stage)).reduce((s, e) => s + e.amount, 0);
-    const cost = costs.filter(c => c.date?.slice(0,7) === m).reduce((s, c) => s + c.amount, 0);
-    return { m, rev, cost };
-  });
-  const maxVal = Math.max(...chartData.map(d => Math.max(d.rev, d.cost)), 1);
+  const [fromMes,    setFromMes]    = useState(addMonths(curMes, -2));
+  const [toMes,      setToMes]      = useState(curMes);
+  const [showForm,   setShowForm]   = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
+
+  const months = useMemo(() => monthsInRange(fromMes, toMes), [fromMes, toMes]);
+
+  const revM = m =>
+    events.filter(e => e.date?.slice(0,7) === m && ["Confirmación","Evento","Post-venta"].includes(e.stage))
+          .reduce((s, e) => s + (e.amount || 0), 0);
+
+  const costM = (m, cats) =>
+    costs.filter(c => c.date?.slice(0,7) === m && cats.includes(c.category))
+         .reduce((s, c) => s + (c.amount || 0), 0);
+
+  const calcM = m => {
+    const ventas    = revM(m);
+    const merch     = costM(m, ["Mercaderías", "Insumos / Bebidas", "Catering extra"]);
+    const bebidas   = costM(m, ["Bebidas"]);
+    const cdv       = merch + bebidas;
+    const utilBruta = ventas - cdv;
+    const publi     = costM(m, ["Marketing"]);
+    const sueldos   = costM(m, ["Personal"]);
+    const otros     = costM(m, ["Alquiler salón", "Decoración", "Audio / Video", "Transporte", "Otro"]);
+    const impuestos = costM(m, ["Impuestos"]);
+    const prev      = costM(m, ["Previsiones"]);
+    const neto      = utilBruta - publi - sueldos - otros - impuestos - prev;
+    return { ventas, merch, bebidas, cdv, utilBruta, publi, sueldos, otros, impuestos, prev, neto };
+  };
+
+  const data = useMemo(() => months.map(m => ({ m, ...calcM(m) })), [months, events, costs]);
+  const tot  = useMemo(() => data.reduce((acc, d) => {
+    Object.keys(d).forEach(k => { if (k !== "m") acc[k] = (acc[k] || 0) + d[k]; });
+    return acc;
+  }, {}), [data]);
+
+  const showTotal = months.length > 1;
+  const colCount  = 1 + months.length + (showTotal ? 1 : 0);
+
+  const fmtResult = v => {
+    if (v === 0) return null;
+    return v < 0 ? `(${fmtARS(Math.abs(v))})` : fmtARS(v);
+  };
+  const fmtCost = v => v === 0 ? null : `(${fmtARS(v)})`;
+  const fmtPct  = (v, ventas) => ventas > 0 ? `${((v / ventas) * 100).toFixed(1)}%` : null;
+
+  const resultColor  = v => v > 0 ? "#34D399" : v < 0 ? "#D05050" : "#454035";
+  const pctColor     = v => v > 0 ? "#7EB89A" : v < 0 ? "#D05050" : "#454035";
+
+  const detailCosts = useMemo(() =>
+    costs.filter(c => { const cm = c.date?.slice(0,7); return cm >= fromMes && cm <= toMes; })
+         .sort((a, b) => (b.date || "").localeCompare(a.date || "")),
+    [costs, fromMes, toMes]
+  );
+
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "2rem" }}>
         <div>
           <h1 style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.5rem", fontWeight: 400, color: "#EDE8DF", letterSpacing: "0.18em", textTransform: "uppercase", margin: 0 }}>P & L</h1>
           <div style={{ color: "#555045", fontSize: "0.78rem", marginTop: 2 }}>Resultados · Standard 69</div>
         </div>
-        <div style={{ display: "flex", gap: "0.75rem" }}>
-          <select value={period} onChange={e => setPeriod(e.target.value)} style={{ ...S.inp, width: 190, textTransform: "capitalize" }}>
-            <option value="all">Todo el período</option>
-            {months.map(m => <option key={m} value={m}>{fmtMes(m)}</option>)}
-          </select>
+        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+            <span style={{ fontSize: "0.62rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#454035" }}>Desde</span>
+            <input type="month" value={fromMes} max={toMes} onChange={e => setFromMes(e.target.value)} style={{ ...S.inp, width: 148 }} />
+          </div>
+          <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+            <span style={{ fontSize: "0.62rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#454035" }}>Hasta</span>
+            <input type="month" value={toMes} min={fromMes} onChange={e => setToMes(e.target.value)} style={{ ...S.inp, width: 148 }} />
+          </div>
           <button type="button" onClick={() => setShowForm(true)} style={S.btnP}>+ Registrar costo</button>
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "0.875rem", marginBottom: "1.75rem" }}>
-        {[
-          { lbl: "Revenue confirmado", val: fmtARS(revenue),    color: "#34D399" },
-          { lbl: "Cobrado efectivo",   val: fmtARS(collected),  color: GOLD },
-          { lbl: "Costos totales",     val: fmtARS(totalCosts), color: "#D05050" },
-          { lbl: "Resultado neto",     val: fmtARS(gross), sub: margin !== "—" ? `Margen ${margin}%` : "", color: gross >= 0 ? "#34D399" : "#D05050" },
-        ].map((s, i) => (
-          <div key={i} style={S.card}>
-            <div style={S.lbl}>{s.lbl}</div>
-            <div style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.6rem", fontWeight: 300, color: s.color, lineHeight: 1.1 }}>{s.val}</div>
-            {s.sub && <div style={{ fontSize: "0.68rem", color: "#4A4540", marginTop: 3 }}>{s.sub}</div>}
-          </div>
-        ))}
+
+      {/* P&L table */}
+      <div style={{ ...S.card, overflowX: "auto", padding: "1.5rem 1.75rem" }}>
+        {months.length === 0 && (
+          <div style={{ color: "#4A4540", fontSize: "0.875rem" }}>Seleccioná un rango de meses válido.</div>
+        )}
+        {months.length > 0 && (
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 400 }}>
+            <thead>
+              <tr>
+                <th style={{ ...S.th, padding: "0 2rem 0.875rem 0", width: "32%" }} />
+                {months.map(m => (
+                  <th key={m} style={{ ...S.th, padding: "0 0 0.875rem 0", textAlign: "right", fontSize: "0.68rem", letterSpacing: "0.08em", color: "#6A6055", textTransform: "capitalize" }}>
+                    {fmtMesCorto(m)}
+                  </th>
+                ))}
+                {showTotal && (
+                  <th style={{ ...S.th, padding: "0 0 0.875rem 1.5rem", textAlign: "right", fontSize: "0.62rem", letterSpacing: "0.14em", color: "#454035" }}>TOTAL</th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {PYL_ROWS.map((row, i) => {
+                if (row.type === "sep") {
+                  return <tr key={i}><td colSpan={colCount} style={{ height: 1, padding: "6px 0 0", borderBottom: "1px solid #1C1C18" }} /></tr>;
+                }
+                if (row.type === "header") {
+                  return (
+                    <tr key={i}>
+                      <td colSpan={colCount} style={{ padding: "0.625rem 0 0.2rem", fontSize: "0.58rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "#3A3530" }}>
+                        {row.label}
+                      </td>
+                    </tr>
+                  );
+                }
+
+                const isRevenue  = row.type === "revenue";
+                const isCost     = row.type === "cost" || row.type === "subtotal";
+                const isResult   = row.type === "result";
+                const isPct      = row.type === "pct";
+                const isHighlight = row.highlight;
+                const vPad = isResult ? "0.7rem" : isPct ? "0.1rem" : "0.42rem";
+
+                const cellStyle = (extra = {}) => ({
+                  padding: `${vPad} 0`,
+                  textAlign: "right",
+                  fontSize: isResult ? "0.88rem" : isPct ? "0.68rem" : "0.825rem",
+                  fontWeight: row.bold ? 600 : 400,
+                  borderTop: isResult ? "1px solid #2A2A28" : "none",
+                  ...extra,
+                });
+
+                const labelStyle = {
+                  padding: `${vPad} 2rem ${vPad} ${row.indent ? "1.25rem" : "0"}`,
+                  fontSize: isResult ? "0.82rem" : isPct ? "0.68rem" : "0.8rem",
+                  fontWeight: row.bold ? 600 : 400,
+                  color: isHighlight ? "#EDE8DF" : isResult ? "#C8BFB0" : isPct ? "#454035" : isCost ? "#7A7260" : "#B0A898",
+                  letterSpacing: row.bold ? "0.1em" : "0.01em",
+                  textTransform: row.bold ? "uppercase" : "none",
+                  borderTop: isResult ? "1px solid #2A2A28" : "none",
+                  background: isHighlight ? "rgba(52,211,153,0.03)" : "transparent",
+                };
+
+                return (
+                  <tr key={i}>
+                    <td style={labelStyle}>{row.label}</td>
+                    {data.map(d => {
+                      let display = null;
+                      let color   = "#555045";
+                      if (isPct) {
+                        const pct = fmtPct(d[row.key], d.ventas);
+                        display = pct;
+                        color   = pctColor(d[row.key]);
+                      } else if (isResult) {
+                        display = fmtResult(d[row.key]);
+                        color   = resultColor(d[row.key]);
+                      } else if (isCost) {
+                        display = fmtCost(d[row.key]);
+                        color   = d[row.key] > 0 ? "#C08060" : "#333";
+                      } else {
+                        display = d[row.key] > 0 ? fmtARS(d[row.key]) : null;
+                        color   = d[row.key] > 0 ? "#B0A898" : "#333";
+                      }
+                      return (
+                        <td key={d.m} style={{ ...cellStyle(), color, background: isHighlight ? "rgba(52,211,153,0.03)" : "transparent" }}>
+                          {display ?? <span style={{ color: "#2A2A28" }}>—</span>}
+                        </td>
+                      );
+                    })}
+                    {showTotal && (() => {
+                      let display = null;
+                      let color   = "#555045";
+                      if (isPct) {
+                        const pct = fmtPct(tot[row.key], tot.ventas);
+                        display = pct;
+                        color   = pctColor(tot[row.key]);
+                      } else if (isResult) {
+                        display = fmtResult(tot[row.key]);
+                        color   = resultColor(tot[row.key]);
+                      } else if (isCost) {
+                        display = fmtCost(tot[row.key]);
+                        color   = (tot[row.key] || 0) > 0 ? "#C08060" : "#333";
+                      } else {
+                        display = (tot[row.key] || 0) > 0 ? fmtARS(tot[row.key]) : null;
+                        color   = (tot[row.key] || 0) > 0 ? "#8A8270" : "#333";
+                      }
+                      return (
+                        <td style={{ ...cellStyle({ paddingLeft: "1.5rem", opacity: 0.8 }), color, background: isHighlight ? "rgba(52,211,153,0.03)" : "transparent" }}>
+                          {display ?? <span style={{ color: "#2A2A28" }}>—</span>}
+                        </td>
+                      );
+                    })()}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: "1.125rem", marginBottom: "1.5rem" }}>
-        <div style={S.card}>
-          <div style={{ fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6A6055", marginBottom: "1.25rem" }}>Revenue vs Costos por mes</div>
-          {chartData.length === 0 && <div style={{ color: "#4A4540", fontSize: "0.875rem" }}>Sin datos suficientes</div>}
-          <div style={{ display: "flex", gap: "0.625rem", alignItems: "flex-end", height: 120 }}>
-            {chartData.map(d => (
-              <div key={d.m} style={{ flex: 1, display: "flex", gap: 3, alignItems: "flex-end", height: "100%" }}>
-                <div title={`Revenue: ${fmtARS(d.rev)}`} style={{ flex: 1, height: `${Math.round((d.rev/maxVal)*100)}%`, minHeight: d.rev > 0 ? 4 : 0, background: "rgba(52,211,153,0.45)", borderRadius: "3px 3px 0 0" }} />
-                <div title={`Costos: ${fmtARS(d.cost)}`} style={{ flex: 1, height: `${Math.round((d.cost/maxVal)*100)}%`, minHeight: d.cost > 0 ? 4 : 0, background: "rgba(208,80,80,0.45)", borderRadius: "3px 3px 0 0" }} />
-              </div>
-            ))}
+
+      {/* Detalle de costos colapsable */}
+      <div style={{ marginTop: "1.125rem" }}>
+        <button type="button" onClick={() => setShowDetail(p => !p)}
+          style={{ ...S.btnS, fontSize: "0.72rem", display: "flex", alignItems: "center", gap: "0.35rem" }}>
+          <span style={{ fontSize: "0.65rem" }}>{showDetail ? "▾" : "▸"}</span>
+          Detalle de costos del período ({detailCosts.length})
+        </button>
+        {showDetail && (
+          <div style={{ ...S.card, marginTop: "0.75rem" }}>
+            {detailCosts.length === 0 && <div style={{ color: "#4A4540", fontSize: "0.875rem" }}>Sin costos en el período seleccionado.</div>}
+            {detailCosts.map(c => {
+              const ev = events.find(e => e.id === c.eventId);
+              return (
+                <div key={c.id} style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "0.55rem 0", borderBottom: "1px solid #181818" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: "0.8rem", color: "#F0EAD8" }}>{c.notes || c.category}</div>
+                    <div style={{ fontSize: "0.68rem", color: "#555045" }}>{c.category}{ev ? ` · ${ev.title}` : " · General"} · {fmtD(c.date)}</div>
+                  </div>
+                  <div style={{ fontSize: "0.875rem", color: "#C08060", fontWeight: 500 }}>{fmtARS(c.amount)}</div>
+                  <button type="button" onClick={() => onDeleteCost(c.id)} style={{ ...S.btnS, padding: "0.25rem 0.6rem", fontSize: "0.72rem", color: "#D05050", borderColor: "rgba(208,80,80,0.25)" }}>×</button>
+                </div>
+              );
+            })}
           </div>
-          <div style={{ display: "flex", gap: "0.625rem", marginTop: "0.5rem" }}>
-            {chartData.map(d => <div key={d.m} style={{ flex: 1, textAlign: "center", fontSize: "0.58rem", color: "#454035", textTransform: "capitalize" }}>{new Date(d.m + "-01").toLocaleDateString("es-AR", { month: "short" })}</div>)}
-          </div>
-          <div style={{ display: "flex", gap: "1.25rem", marginTop: "0.75rem" }}>
-            <span style={{ fontSize: "0.68rem", color: "#34D399" }}>■ Revenue</span>
-            <span style={{ fontSize: "0.68rem", color: "#D05050" }}>■ Costos</span>
-          </div>
-        </div>
-        <div style={S.card}>
-          <div style={{ fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6A6055", marginBottom: "1.125rem" }}>Costos por categoría</div>
-          {byCat.length === 0 && <div style={{ color: "#4A4540", fontSize: "0.875rem" }}>Sin costos registrados</div>}
-          {byCat.map(({ cat, total }) => (
-            <div key={cat} style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-              <span style={{ fontSize: "0.8rem", color: "#B0A898" }}>{cat}</span>
-              <span style={{ fontSize: "0.8rem", color: "#D05050", fontWeight: 500 }}>{fmtARS(total)}</span>
-            </div>
-          ))}
-          {byCat.length > 0 && (
-            <div style={{ marginTop: "0.875rem", paddingTop: "0.75rem", borderTop: "1px solid #181818", display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "0.75rem", color: "#555045" }}>Total</span>
-              <span style={{ fontSize: "0.875rem", color: "#D05050", fontWeight: 600 }}>{fmtARS(totalCosts)}</span>
-            </div>
-          )}
-        </div>
+        )}
       </div>
-      <div style={S.card}>
-        <div style={{ fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6A6055", marginBottom: "1rem" }}>Detalle de costos</div>
-        {costs.length === 0 && <div style={{ color: "#4A4540", fontSize: "0.875rem" }}>Sin costos registrados.</div>}
-        {costs.map(c => {
-          const ev = events.find(e => e.id === c.eventId);
-          return (
-            <div key={c.id} style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "0.6rem 0", borderBottom: "1px solid #181818" }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: "0.825rem", color: "#F0EAD8" }}>{c.notes || c.category}</div>
-                <div style={{ fontSize: "0.7rem", color: "#555045" }}>{c.category}{ev ? ` · ${ev.title}` : " · General"} · {fmtD(c.date)}</div>
-              </div>
-              <div style={{ fontSize: "0.875rem", color: "#D05050", fontWeight: 500 }}>{fmtARS(c.amount)}</div>
-              <button type="button" onClick={() => onDeleteCost(c.id)} style={{ ...S.btnS, padding: "0.25rem 0.6rem", fontSize: "0.72rem", color: "#D05050", borderColor: "rgba(208,80,80,0.25)" }}>×</button>
-            </div>
-          );
-        })}
-      </div>
+
       {showForm && <CostForm events={events} onSave={d => { onAddCost(d); setShowForm(false); }} onClose={() => setShowForm(false)} />}
     </div>
   );
@@ -1182,7 +1335,15 @@ const PROPUESTA_TEMPLATES = {
   },
 };
 
-function generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, lineas }) {
+async function imgToB64(url) {
+  try {
+    const r = await fetch(url);
+    const b = await r.blob();
+    return await new Promise(res => { const fr = new FileReader(); fr.onloadend = () => res(fr.result); fr.readAsDataURL(b); });
+  } catch { return url; }
+}
+
+async function generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, lineas }) {
   const t = PROPUESTA_TEMPLATES[menuTipo] || PROPUESTA_TEMPLATES["Finger food"];
   const guests = ev.guests || 0;
   const li = item => `<li>${item}</li>`;
@@ -1219,6 +1380,13 @@ function generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, lineas }) 
   const FOOTER_FULL = `${FOOTER} &nbsp;·&nbsp; A D M S T A N D A R D 6 9 W @ G M A I L . C O M &nbsp;·&nbsp; + 5 4 9 3 5 1 8 1 4 - 7 3 7 3`;
 
   const BASE = "https://standard69-crm.vercel.app";
+  const [b64Logo, b64Portada, b64Jardin, b64Mozo, b64Brindis] = await Promise.all([
+    imgToB64(`${BASE}/logo.png`),
+    imgToB64(`${BASE}/foto_portada.jpg`),
+    imgToB64(`${BASE}/foto_jardin.jpg`),
+    imgToB64(`${BASE}/foto_mozo.jpg`),
+    imgToB64(`${BASE}/foto_brindis.jpg`),
+  ]);
 
   const css = `@page{size:A4;margin:0}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#2a2520;font-size:13px}.page{width:210mm;min-height:297mm;position:relative;background:#F5F0E8;page-break-after:always;overflow:hidden}.ft{position:absolute;bottom:0;left:0;right:0;background:#1a1a18;color:#888;font-size:7.5px;letter-spacing:.18em;text-transform:uppercase;text-align:center;padding:11px 20px}
 /* P1 cover */.p1{display:flex;flex-direction:column;align-items:center;padding:36px 40px 50px}.p1-logo{margin-bottom:4px;text-align:center}.p1-logo img{height:42px;display:block;margin:0 auto}.p1-img{width:100%;height:310px;border-radius:3px;overflow:hidden;margin:28px 0 12px}.p1-img img{width:100%;height:100%;object-fit:cover;display:block}.p1-sub{display:flex;gap:12px;width:100%}.p1-sub-img{flex:1;height:188px;border-radius:3px;overflow:hidden}.p1-sub-img img{width:100%;height:100%;object-fit:cover;display:block}
