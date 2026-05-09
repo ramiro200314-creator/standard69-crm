@@ -1397,17 +1397,17 @@ async function generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, line
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Propuesta · ${ev.title}</title><style>${css}</style></head><body>
 <div class="page p1">
-  <div class="p1-logo"><img src="${BASE}/logo.png" alt="Standard 69"></div>
-  <div class="p1-img"><img src="${BASE}/foto_portada.jpg" alt=""></div>
+  <div class="p1-logo"><img src="${b64Logo}" alt="Standard 69"></div>
+  <div class="p1-img"><img src="${b64Portada}" alt=""></div>
   <div class="p1-sub">
-    <div class="p1-sub-img"><img src="${BASE}/foto_jardin.jpg" alt=""></div>
-    <div class="p1-sub-img"><img src="${BASE}/foto_mozo.jpg" alt=""></div>
+    <div class="p1-sub-img"><img src="${b64Jardin}" alt=""></div>
+    <div class="p1-sub-img"><img src="${b64Mozo}" alt=""></div>
   </div>
   <div class="ft">${FOOTER}</div>
 </div>
 <div class="page">
-  <div class="p2-img"><img src="${BASE}/foto_brindis.jpg" alt=""></div>
-  <div class="p2-logo"><img src="${BASE}/logo.png" alt="Standard 69"></div>
+  <div class="p2-img"><img src="${b64Brindis}" alt=""></div>
+  <div class="p2-logo"><img src="${b64Logo}" alt="Standard 69"></div>
   <table class="info-t">
     <tr><td>Tipo de evento</td><td>${ev.type || ev.title || ""}</td></tr>
     <tr><td>Fecha del evento</td><td style="text-transform:capitalize">${fechaLarga}</td></tr>
@@ -1445,11 +1445,7 @@ async function generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, line
   const w = window.open("", "_blank");
   w.document.write(html);
   w.document.close();
-  const imgs = w.document.querySelectorAll("img");
-  if (!imgs.length) { setTimeout(() => w.print(), 500); return; }
-  let loaded = 0;
-  const tryPrint = () => { if (++loaded >= imgs.length) setTimeout(() => w.print(), 400); };
-  imgs.forEach(img => { if (img.complete) tryPrint(); else { img.onload = tryPrint; img.onerror = tryPrint; } });
+  setTimeout(() => w.print(), 600);
 }
 
 function PropuestaModal({ ev, onClose }) {
@@ -1514,7 +1510,7 @@ function PropuestaModal({ ev, onClose }) {
       </div>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
         <button type="button" onClick={onClose} style={S.btnS}>Cancelar</button>
-        <button type="button" onClick={() => { generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, lineas }); onClose(); }} style={S.btnP}>Generar PDF</button>
+        <button type="button" onClick={async () => { await generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, lineas }); onClose(); }} style={S.btnP}>Generar PDF</button>
       </div>
     </Modal>
   );
