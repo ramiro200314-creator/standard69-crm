@@ -1186,7 +1186,8 @@ function MenuTab({ ev, platos, ings, recetas, onAdd, onAddBulk, onUpdate, onDele
   const [selec, setSelec] = useState("");
   const [porc, setPorc] = useState("");
   const cfg = MENU_TIPOS.find(m => m.nombre === menuTipo) || MENU_TIPOS[0];
-  const defPorc = Math.round(ev.guests * cfg.porPax);
+  const totalPorc = Math.round(ev.guests * cfg.porPax);
+  const defPorc = Math.round(totalPorc / (platos.length + 1));
 
   const recetasNombres = new Set(recetas.map(r => r.nombre.toLowerCase()));
   const platosEstandar = (MENUS_ESTANDAR[menuTipo] || [])
@@ -1218,11 +1219,11 @@ function MenuTab({ ev, platos, ings, recetas, onAdd, onAddBulk, onUpdate, onDele
   };
 
   const cargarEstandar = () => {
-    const p = parseInt(porc) || defPorc;
     const lista = MENUS_ESTANDAR[menuTipo] || [];
+    const pPorPlato = parseInt(porc) || Math.round(totalPorc / lista.length);
     const nuevosPlatos = lista.map((nombre, idx) => ({
       eventId: ev.id, tipo: "plato", campo1: nombre, campo2: menuTipo,
-      campo3: String(p), campo4: "", campo5: "", orden: platos.length + 1 + idx,
+      campo3: String(pPorPlato), campo4: "", campo5: "", orden: platos.length + 1 + idx,
     }));
     onAddBulk(nuevosPlatos);
     setShow(false); setPorc("");
@@ -1232,7 +1233,7 @@ function MenuTab({ ev, platos, ings, recetas, onAdd, onAddBulk, onUpdate, onDele
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
         <span style={{ ...S.lbl, margin: 0 }}>Menú y producción</span>
-        <button type="button" onClick={() => setShow(!show)} style={S.btnP}>+ Agregar plato</button>
+        <button type="button" onClick={() => setShow(!show)} style={S.btnP}>Propuesta</button>
       </div>
       {show && (
         <div style={{ ...S.card, marginBottom: "1rem", background: "#0D0D0B" }}>
@@ -1244,7 +1245,7 @@ function MenuTab({ ev, platos, ings, recetas, onAdd, onAddBulk, onUpdate, onDele
               </select>
             </div>
             <div style={{ flex: 1 }}>
-              <label style={S.lbl}>Porciones (default: {defPorc} = {ev.guests}pax × {cfg.porPax})</label>
+              <label style={S.lbl}>Porciones (default: {defPorc} = {totalPorc} total ÷ {platos.length + 1} platos)</label>
               <input type="number" value={porc} onChange={e => setPorc(e.target.value)} placeholder={String(defPorc)} style={S.inp} />
             </div>
           </div>
@@ -1255,7 +1256,7 @@ function MenuTab({ ev, platos, ings, recetas, onAdd, onAddBulk, onUpdate, onDele
               </div>
               <button type="button" onClick={cargarEstandar}
                 style={{ ...S.btnS, fontSize: "0.72rem", color: GOLD, borderColor: "rgba(211,154,89,0.3)" }}>
-                Cargar menú completo ({parseInt(porc) || defPorc} porciones c/u)
+                Cargar menú completo ({parseInt(porc) || Math.round(totalPorc / (MENUS_ESTANDAR[menuTipo]?.length || 1))} porciones c/u)
               </button>
             </div>
           )}
