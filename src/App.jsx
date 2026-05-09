@@ -683,9 +683,15 @@ function PostVenta({ events, postventas, onSave }) {
 }
 
 // ─── P & L ────────────────────────────────────────────────────────────────────
+const fmtMes = m => {
+  const [y, mo] = m.split("-");
+  return new Date(Number(y), Number(mo) - 1, 1).toLocaleDateString("es-AR", { month: "long", year: "numeric" });
+};
+
 function PyL({ events, payments, costs, onAddCost, onDeleteCost }) {
   const [showForm, setShowForm] = useState(false);
-  const [period, setPeriod] = useState("all");
+  const curMes = todayStr().slice(0, 7);
+  const [period, setPeriod] = useState(curMes);
   const months = useMemo(() => [...new Set(events.map(e => e.date?.slice(0,7)).filter(Boolean))].sort().reverse(), [events]);
   const filteredEvIds = useMemo(() => {
     if (period === "all") return new Set(events.map(e => e.id));
@@ -711,9 +717,9 @@ function PyL({ events, payments, costs, onAddCost, onDeleteCost }) {
           <div style={{ color: "#555045", fontSize: "0.78rem", marginTop: 2 }}>Resultados · Standard 69</div>
         </div>
         <div style={{ display: "flex", gap: "0.75rem" }}>
-          <select value={period} onChange={e => setPeriod(e.target.value)} style={{ ...S.inp, width: 160 }}>
+          <select value={period} onChange={e => setPeriod(e.target.value)} style={{ ...S.inp, width: 190, textTransform: "capitalize" }}>
             <option value="all">Todo el período</option>
-            {months.map(m => <option key={m} value={m}>{m}</option>)}
+            {months.map(m => <option key={m} value={m}>{fmtMes(m)}</option>)}
           </select>
           <button type="button" onClick={() => setShowForm(true)} style={S.btnP}>+ Registrar costo</button>
         </div>
@@ -745,7 +751,7 @@ function PyL({ events, payments, costs, onAddCost, onDeleteCost }) {
             ))}
           </div>
           <div style={{ display: "flex", gap: "0.625rem", marginTop: "0.5rem" }}>
-            {chartData.map(d => <div key={d.m} style={{ flex: 1, textAlign: "center", fontSize: "0.58rem", color: "#454035" }}>{d.m.slice(5)}</div>)}
+            {chartData.map(d => <div key={d.m} style={{ flex: 1, textAlign: "center", fontSize: "0.58rem", color: "#454035", textTransform: "capitalize" }}>{new Date(d.m + "-01").toLocaleDateString("es-AR", { month: "short" })}</div>)}
           </div>
           <div style={{ display: "flex", gap: "1.25rem", marginTop: "0.75rem" }}>
             <span style={{ fontSize: "0.68rem", color: "#34D399" }}>■ Revenue</span>
