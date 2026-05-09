@@ -1020,6 +1020,253 @@ const MENUS_ESTANDAR = {
   ],
 };
 const ROLES_OP = ["Mozo/a", "Bartender", "Coordinador/a", "Cocinero/a", "Sommelier", "Seguridad", "Limpieza", "DJ / Animación", "Fotografía", "Otro"];
+
+// ─── Plantillas de propuesta por tipo de menú ────────────────────────────────
+const PROPUESTA_TEMPLATES = {
+  "Finger food": {
+    recepcion: ["Barra de bebidas", "Mesa de Recepción con variedades de fiambres y quesos cordobeces, hummus y panes de nuestra panadería"],
+    mainLabel: "F I N G E R  F O O D",
+    main: ["Pincho de Tortilla, jamón crudo y vegetales", "Taquitos de Cuadril", "Arepas de pollo con Alioli de Palta", "Provoletas Ahumadas con Miel gratinada", "Pincho de Pollo Marroquí con Cous Cous y Yogur Especiado", "Brochette de vegetales salteados", "Croquetas de Jamón serrano", "Portobellos a la parrilla con crema de castañas y provenzal"],
+    postre: ["Flan de Dulce de Leche", "Infusión Mediana", "Torta de cumpleaños (opcional)"],
+    postreNota: "Una opción por persona",
+    bebSinAlc: ["Línea Coca Cola", "Agua con y sin gas", "Jugo natural de temporada"],
+    bebConAlc: ["Fernet Branca con Coca Cola", "Aperol Spritz", "Gin Tonic (Beefeater)"],
+    servicios: ["DJ o música en vivo", "Decoración personalizada", "Carpas y livings exterior"],
+    precios: [
+      { servicio: "Menú sin alcohol", porPersona: true, valor: "" },
+      { servicio: "Música en vivo / DJ", porPersona: false, valor: "450000" },
+      { servicio: "Decoración y ambientación", porPersona: false, valor: "Requerimientos extras se cotizan por separado", noEdit: true },
+    ],
+  },
+  "Finger food premium": {
+    recepcion: ["Barra de bebidas", "Mesa de Recepción con variedades de fiambres y quesos cordobeces, hummus y panes de nuestra panadería"],
+    mainLabel: "F I N G E R  F O O D  P R E M I U M",
+    main: ["Pincho de Tortilla, jamón crudo y vegetales", "Pincho de Pulpo con Salsa Anticuchero", "Taquitos de Cordero", "Arepas de pollo con Alioli de Palta", "Mollejas Laqueadas a la parrilla", "Mini Sandwich de ojo de bife con Pan de Masa madre", "Brochette de vegetales salteados", "Croquetas de Jamón serrano", "Pancho de masa madre con salchicha alemana"],
+    postre: ["Flan de Dulce de Leche", "Infusión Mediana", "Torta de cumpleaños (opcional)"],
+    postreNota: "Una opción por persona",
+    bebSinAlc: ["Línea Coca Cola", "Agua con y sin gas", "Jugo natural de temporada"],
+    bebConAlc: ["Fernet Branca con Coca Cola", "Aperol Spritz", "Gin Tonic (Beefeater)", "Achala Clos de Molle Ingrato Malbec", "Espumante Baron B brut nature"],
+    servicios: ["DJ o música en vivo", "Decoración personalizada", "Carpas y livings exterior"],
+    precios: [
+      { servicio: "Menú sin alcohol", porPersona: true, valor: "" },
+      { servicio: "Música en vivo / DJ", porPersona: false, valor: "450000" },
+      { servicio: "Decoración y ambientación", porPersona: false, valor: "Requerimientos extras se cotizan por separado", noEdit: true },
+    ],
+  },
+  "Merienda / Desayuno": {
+    recepcion: null,
+    mainLabel: "D U L C E S  Y  S A L A D O S",
+    main: ["Mini Sandwich del Día", "Mix de Cookies", "Budín de Limón", "Scon de Quesos", "Chipá con Queso Azul", "Frutas", "Pan de chocolate", "Bakery Varios", "Torta Tres Leches"],
+    postre: null,
+    bebSinAlc: ["Línea Coca Cola", "Agua con y sin gas", "Infusiones medianas", "Jugo natural de temporada"],
+    bebConAlc: null,
+    servicios: null,
+    precios: [
+      { servicio: "Menú sin alcohol", porPersona: true, valor: "" },
+      { servicio: "Música en vivo / DJ", porPersona: false, valor: "450000" },
+      { servicio: "Decoración y ambientación", porPersona: false, valor: "Requerimientos extras se cotizan por separado", noEdit: true },
+    ],
+  },
+  "Menú por pasos": {
+    recepcion: ["Agua filtrada", "Pan de masa madre con Appetizer"],
+    mainLabel: "E N T R A D A :  T A P E O",
+    main: ["Hummus de Pallares", "Calamares rebozados", "Burrata con Peras Asadas"],
+    principal: { label: "P R I N C I P A L :  A  E L E C C I Ó N", items: ["Ojo de bife con acompañamiento", "Pacu grillado a la Parrilla"], acomp: ["Tortilla Española", "Rúcula y Parmesano"] },
+    postre: ["Flan de Dulce de Leche", "Infusión Mediana", "Torta de cumpleaños (opcional)"],
+    postreNota: "Una opción por persona",
+    bebSinAlc: ["Línea Coca Cola", "Agua con y sin gas", "Jugo natural de temporada"],
+    bebConAlc: ["Fernet Branca con Coca Cola", "Aperol Spritz", "Gin Tonic (Beefeater)", "Achala Clos de Molle Ingrato Malbec"],
+    bebConAlcNota: "Tres consumiciones por persona",
+    servicios: ["DJ o música en vivo", "Decoración personalizada", "Carpas y livings exterior"],
+    precios: [
+      { servicio: "Menú sin alcohol", porPersona: true, valor: "" },
+      { servicio: "Menú con alcohol (3 consumiciones)", porPersona: true, valor: "" },
+      { servicio: "Música en vivo / DJ", porPersona: false, valor: "450000" },
+      { servicio: "Decoración y ambientación", porPersona: false, valor: "Requerimientos extras se cotizan por separado", noEdit: true },
+    ],
+  },
+  "Tapeo": {
+    recepcion: ["Agua filtrada", "Pan de masa madre con Appetizer"],
+    mainLabel: "T A P E O",
+    main: ["Recepción con Variedades de quesos y fiambres", "Tortilla española, jamón crudo y vegetales", "Taquitos de Cordero", "Arepas de pollo con Alioli de Palta", "Croquetas de Jamón serrano", "Provoleta Ahumada con Miel Gratinada", "Pimientos Ahumados con anchoas"],
+    postre: ["Flan de Dulce de Leche", "Infusión Mediana", "Torta de cumpleaños (opcional)"],
+    postreNota: "Una opción por persona",
+    bebSinAlc: ["Línea Coca Cola", "Agua con y sin gas", "Jugo natural de temporada"],
+    bebConAlc: ["Fernet Branca con Coca Cola", "Aperol Spritz", "Gin Tonic (Beefeater)", "Achala Clos de Molle Ingrato Malbec"],
+    bebConAlcNota: "Tres consumiciones por persona",
+    servicios: ["DJ o música en vivo", "Decoración personalizada", "Carpas y livings exterior"],
+    precios: [
+      { servicio: "Menú sin alcohol", porPersona: true, valor: "" },
+      { servicio: "Menú con alcohol (3 consumiciones)", porPersona: true, valor: "" },
+      { servicio: "Música en vivo / DJ", porPersona: false, valor: "450000" },
+      { servicio: "Decoración y ambientación", porPersona: false, valor: "Requerimientos extras se cotizan por separado", noEdit: true },
+    ],
+  },
+};
+
+function generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, lineas }) {
+  const t = PROPUESTA_TEMPLATES[menuTipo] || PROPUESTA_TEMPLATES["Finger food"];
+  const guests = ev.guests || 0;
+  const li = item => `<li>${item}</li>`;
+  const sec = (label, items, nota) => `<div class="sec"><div class="sec-lbl">${label}</div><hr class="sec-hr"><ul class="sec-ul">${items.map(li).join("")}</ul>${nota ? `<p class="sec-nota">${nota}</p>` : ""}</div>`;
+
+  let leftCol = "";
+  if (t.recepcion) leftCol += sec("R E C E P C I Ó N", t.recepcion, null);
+  leftCol += sec(t.mainLabel, t.main, null);
+  if (t.principal) leftCol += `<div class="sec"><div class="sec-lbl">${t.principal.label}</div><hr class="sec-hr"><ul class="sec-ul">${t.principal.items.map(li).join("")}</ul><p class="sec-nota">Acompañamiento</p><ul class="sec-ul">${t.principal.acomp.map(li).join("")}</ul></div>`;
+
+  let rightCol = "";
+  if (t.postre) rightCol += sec("P O S T R E  O  C A F É  A  E L E C C I Ó N", t.postre, t.postreNota);
+  if (t.bebSinAlc) rightCol += sec("B E B I D A S  S I N  A L C O H O L  —  L I B R E", t.bebSinAlc, null);
+  if (t.bebConAlc) rightCol += sec("B E B I D A S  C O N  A L C O H O L", t.bebConAlc, t.bebConAlcNota || null);
+  if (t.servicios) rightCol += sec("S E R V I C I O S  A D I C I O N A L E S", t.servicios, null);
+
+  const total = lineas.reduce((s, l) => {
+    const n = Number(String(l.valor || "").replace(/[^0-9]/g, ""));
+    if (!n) return s;
+    return s + (l.porPersona ? n * guests : n);
+  }, 0);
+
+  const budgetRows = lineas.map(l => {
+    const n = Number(String(l.valor || "").replace(/[^0-9]/g, ""));
+    let display;
+    if (l.noEdit) display = l.valor;
+    else if (!n) display = "A cotizar";
+    else display = `$ ${n.toLocaleString("es-AR")}${l.porPersona ? " + IVA" : ""}`;
+    return `<tr><td class="b-svc">${l.servicio}</td><td class="b-val">${display}</td></tr>`;
+  }).join("") + `<tr><td class="b-svc"></td><td class="b-val"></td></tr>`;
+
+  const fechaLarga = ev.date ? new Date(ev.date + "T00:00:00").toLocaleDateString("es-AR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }) : "";
+  const FOOTER = `S T A N D A R D  6 9 &nbsp;·&nbsp; V I L L A  W A R C A L D E &nbsp;·&nbsp; C Ó R D O B A`;
+  const FOOTER_FULL = `${FOOTER} &nbsp;·&nbsp; A D M S T A N D A R D 6 9 W @ G M A I L . C O M &nbsp;·&nbsp; + 5 4 9 3 5 1 8 1 4 - 7 3 7 3`;
+
+  const css = `@page{size:A4;margin:0}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#2a2520;font-size:13px}.page{width:210mm;min-height:297mm;position:relative;background:#F5F0E8;page-break-after:always;overflow:hidden}.ft{position:absolute;bottom:0;left:0;right:0;background:#1a1a18;color:#888;font-size:7.5px;letter-spacing:.18em;text-transform:uppercase;text-align:center;padding:11px 20px}
+/* P1 cover */.p1{display:flex;flex-direction:column;align-items:center;padding:40px 40px 50px}.p1-logo{font-size:2.2rem;letter-spacing:.38em;text-transform:uppercase;font-weight:400;margin-bottom:4px}.p1-logo sup{font-size:1.4rem;font-style:italic;font-family:Georgia,serif;letter-spacing:-.02em}.p1-img{width:100%;height:300px;background:linear-gradient(135deg,#2a2520,#1a1a18 50%,#3a3020);border-radius:3px;display:flex;align-items:center;justify-content:center;margin:30px 0 14px}.p1-sub{display:flex;gap:12px;width:100%}.p1-sub-img{flex:1;height:185px;background:linear-gradient(135deg,#3a3530,#2a2520);border-radius:3px;display:flex;align-items:center;justify-content:center}.ph{color:#4a4035;font-size:8px;letter-spacing:.12em;text-transform:uppercase}
+/* P2 event info */.p2-img{width:100%;height:270px;background:linear-gradient(135deg,#2a2520,#1a1a18 55%,#3a3028);display:flex;align-items:center;justify-content:center}.p2-logo{text-align:center;padding:36px 0 28px;font-size:1.5rem;letter-spacing:.38em;text-transform:uppercase;font-weight:400}.p2-logo sup{font-size:.95rem;font-style:italic;font-family:Georgia,serif;letter-spacing:-.02em}.info-t{width:76%;margin:0 auto;border:1px solid #ccc;border-collapse:collapse}.info-t tr{border-bottom:1px solid #ddd}.info-t td{padding:14px 18px;font-size:12.5px}.info-t td:first-child{color:#8a8580;width:40%}.info-t td:last-child{background:#2a2520;color:#EDE8DF}
+/* P3 menu */.p3{padding:48px 46px 56px}.p3-ttl{text-align:center;font-size:1.25rem;font-weight:400;margin-bottom:7px}.gline{width:30px;height:1.5px;background:#c8a870;margin:0 auto 32px}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:28px}.sec{margin-bottom:18px}.sec-lbl{font-size:7.5px;letter-spacing:.18em;text-transform:uppercase;color:#2a2520;font-weight:700;margin-bottom:5px}.sec-hr{border:none;border-top:1px solid #d0c8bc;margin-bottom:9px}.sec-ul{list-style:disc;padding-left:15px}.sec-ul li{margin-bottom:6px;font-size:11.5px;line-height:1.45}.sec-nota{font-size:10px;font-style:italic;color:#8a7a6a;margin-top:5px}
+/* P4 budget */.p4{padding:48px 58px 56px}.p4-ttl{text-align:center;font-size:1.5rem;font-weight:400;letter-spacing:.08em;margin-bottom:7px}.bgt{width:100%;border-collapse:collapse;margin-top:26px}.bgt thead tr{background:#2a2520}.bgt thead th{color:#bbb;font-size:8px;letter-spacing:.16em;text-transform:uppercase;padding:13px 20px;font-weight:400;text-align:center}.b-svc{padding:17px 20px;text-align:center;font-size:13px;border-bottom:1px solid #ddd5c8}.b-val{padding:17px 20px;text-align:center;font-size:13px;border-bottom:1px solid #ddd5c8;border-left:1px solid #ddd5c8}.tot td{background:#2a2520;color:#EDE8DF;font-size:13px;padding:15px 20px;text-align:center;font-weight:500;letter-spacing:.08em}.pago{text-align:center;margin-top:52px}.pago-ttl{font-size:1.05rem;font-weight:400;margin-bottom:7px}.pago-line{font-size:11px;color:#6a6560;margin-bottom:4px}
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Propuesta · ${ev.title}</title><style>${css}</style></head><body>
+<div class="page p1">
+  <div class="p1-logo">STANDARD<sup>69</sup></div>
+  <div class="p1-img"><span class="ph">Villa Warcalde · Córdoba</span></div>
+  <div class="p1-sub">
+    <div class="p1-sub-img"><span class="ph">Espacio exterior</span></div>
+    <div class="p1-sub-img"><span class="ph">Servicio</span></div>
+  </div>
+  <div class="ft">${FOOTER}</div>
+</div>
+<div class="page">
+  <div class="p2-img"><span class="ph" style="color:#4a4035">Standard 69</span></div>
+  <div class="p2-logo">STANDARD<sup>69</sup></div>
+  <table class="info-t">
+    <tr><td>Tipo de evento</td><td>${ev.type || ev.title || ""}</td></tr>
+    <tr><td>Fecha del evento</td><td style="text-transform:capitalize">${fechaLarga}</td></tr>
+    <tr><td>Lugar del evento</td><td>${lugar || "Villa Warcalde, Córdoba"}</td></tr>
+    <tr><td>Número de invitados</td><td>${guests}</td></tr>
+    <tr><td>Horario</td><td>${horario || ""}</td></tr>
+    <tr><td>Espacio asignado</td><td>${espacio || ""}</td></tr>
+  </table>
+  <div class="ft">${FOOTER}</div>
+</div>
+<div class="page p3">
+  <div class="p3-ttl">Descripción de la propuesta</div>
+  <div class="gline"></div>
+  <div class="two-col"><div>${leftCol}</div><div>${rightCol}</div></div>
+  <div class="ft">${FOOTER}</div>
+</div>
+<div class="page p4">
+  <div class="p4-ttl">PRESUPUESTO</div>
+  <div class="gline"></div>
+  <table class="bgt">
+    <thead><tr><th>S E R V I C I O</th><th>V A L O R &nbsp; P O R &nbsp; P E R S O N A</th></tr></thead>
+    <tbody>${budgetRows}<tr class="tot"><td>T O T A L</td><td>${total > 0 ? "$ " + total.toLocaleString("es-AR") : "—"}</td></tr></tbody>
+  </table>
+  <div class="pago">
+    <div class="pago-ttl">Formas de pago</div>
+    <div class="gline" style="margin-bottom:14px"></div>
+    <div class="pago-line">50% al momento de la reserva.</div>
+    <div class="pago-line">50% el día de la realización del evento.</div>
+    <div class="pago-line">El servicio de propina no está incluido en el precio.</div>
+  </div>
+  <div class="ft" style="font-size:7px">${FOOTER_FULL}</div>
+</div>
+</body></html>`;
+
+  const w = window.open("", "_blank");
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => w.print(), 800);
+}
+
+function PropuestaModal({ ev, onClose }) {
+  const defaultTipo = () => {
+    const t = (ev.type || "").toLowerCase();
+    if (t.includes("cumpleaños")) return "Tapeo";
+    if (t.includes("merienda") || t.includes("desayuno")) return "Merienda / Desayuno";
+    if (t.includes("tapeo")) return "Tapeo";
+    if (t.includes("boda")) return "Finger food premium";
+    if (t.includes("cena") || t.includes("aniversario")) return "Menú por pasos";
+    return "Finger food";
+  };
+  const [menuTipo, setMenuTipo] = useState(defaultTipo());
+  const [horario, setHorario] = useState("");
+  const [lugar, setLugar] = useState("Villa Warcalde, Córdoba");
+  const [espacio, setEspacio] = useState((ev.notes || "").match(/Sede: ([^|]+)/)?.[1]?.trim() || "");
+  const [lineas, setLineas] = useState(() => PROPUESTA_TEMPLATES[defaultTipo()].precios.map(p => ({ ...p })));
+
+  const cambiarTipo = tipo => {
+    setMenuTipo(tipo);
+    setLineas(PROPUESTA_TEMPLATES[tipo].precios.map(p => ({ ...p })));
+  };
+  const setL = (i, k, v) => setLineas(prev => prev.map((l, idx) => idx === i ? { ...l, [k]: v } : l));
+
+  return (
+    <Modal title="Generar Propuesta" onClose={onClose} wide>
+      <div style={{ display: "flex", gap: "1rem" }}>
+        <Field label="Tipo de menú" half>
+          <select value={menuTipo} onChange={e => cambiarTipo(e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+            {Object.keys(PROPUESTA_TEMPLATES).map(k => <option key={k}>{k}</option>)}
+          </select>
+        </Field>
+        <Field label="Horario" half>
+          <input value={horario} onChange={e => setHorario(e.target.value)} style={S.inp} placeholder="20:00 — 02:00hs" />
+        </Field>
+      </div>
+      <div style={{ display: "flex", gap: "1rem" }}>
+        <Field label="Lugar del evento" half>
+          <input value={lugar} onChange={e => setLugar(e.target.value)} style={S.inp} placeholder="Villa Warcalde, Córdoba" />
+        </Field>
+        <Field label="Espacio asignado" half>
+          <input value={espacio} onChange={e => setEspacio(e.target.value)} style={S.inp} placeholder="Terraza, Salón..." />
+        </Field>
+      </div>
+      <div style={{ marginBottom: "1rem" }}>
+        <label style={S.lbl}>Líneas de presupuesto · {ev.guests} personas</label>
+        <div style={{ ...S.card, padding: "0.75rem", background: "#0D0D0B" }}>
+          {lineas.map((l, i) => (
+            <div key={i} style={{ display: "flex", gap: "0.6rem", marginBottom: "0.5rem", alignItems: "center" }}>
+              <input value={l.servicio} onChange={e => setL(i, "servicio", e.target.value)}
+                style={{ ...S.inp, flex: 2, fontSize: "0.8rem" }} />
+              <input value={l.valor} onChange={e => setL(i, "valor", e.target.value)}
+                disabled={l.noEdit}
+                style={{ ...S.inp, flex: 1, fontSize: "0.8rem", opacity: l.noEdit ? 0.45 : 1 }}
+                placeholder={l.porPersona ? "$ por persona" : "$ fijo"} />
+              <span style={{ fontSize: "0.62rem", color: "#555045", whiteSpace: "nowrap", minWidth: 60 }}>
+                {l.porPersona ? `× ${ev.guests} pax` : "precio fijo"}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
+        <button type="button" onClick={onClose} style={S.btnS}>Cancelar</button>
+        <button type="button" onClick={() => { generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, lineas }); onClose(); }} style={S.btnP}>Generar PDF</button>
+      </div>
+    </Modal>
+  );
+}
 const parseOp = r => ({ ...r, id: toNum(r.id), eventId: toNum(r.eventId), orden: toNum(r.orden) || 0 });
 
 function ClientForm({ client, onSave, onClose }) {
@@ -1160,6 +1407,7 @@ function OperacionesList({ events, operaciones, setOpEventId }) {
 // ─── Operaciones Detail ───────────────────────────────────────────────────────
 function OperacionDetalle({ ev, ops, recetas, equipoBase, onAdd, onAddBulk, onUpdate, onDelete, onBack }) {
   const [tab, setTab] = useState("menu");
+  const [showPropuesta, setShowPropuesta] = useState(false);
   const venue     = (ev.notes||"").match(/Sede: ([^|]+)/)?.[1]?.trim() || "";
   const personal  = ops.filter(o => o.tipo === "personal").sort((a,b) => a.orden - b.orden);
   const platos    = ops.filter(o => o.tipo === "plato").sort((a,b) => a.orden - b.orden);
@@ -1182,7 +1430,10 @@ function OperacionDetalle({ ev, ops, recetas, equipoBase, onAdd, onAddBulk, onUp
             <div style={{ fontSize: "0.7rem", color: "#555045", marginTop: 3 }}>{fmtDLong(ev.date)} · {ev.guests} PAX{venue ? ` · ${venue}` : ""} · {ev.clientName}</div>
           </div>
         </div>
-        <button type="button" onClick={() => exportarPDF(ev, ops)} style={S.btnP}>Exportar PDF</button>
+        <div style={{ display: "flex", gap: "0.625rem" }}>
+          <button type="button" onClick={() => setShowPropuesta(true)} style={{ ...S.btnS, color: GOLD, borderColor: "rgba(211,154,89,0.3)" }}>Propuesta</button>
+          <button type="button" onClick={() => exportarPDF(ev, ops)} style={S.btnP}>Ops PDF</button>
+        </div>
       </div>
       <div style={{ display: "flex", borderBottom: "1px solid #1C1C18", marginBottom: "1.5rem" }}>
         {tabs.map(t => (
@@ -1192,6 +1443,7 @@ function OperacionDetalle({ ev, ops, recetas, equipoBase, onAdd, onAddBulk, onUp
           </button>
         ))}
       </div>
+      {showPropuesta && <PropuestaModal ev={ev} onClose={() => setShowPropuesta(false)} />}
       {tab === "menu"      && <MenuTab      ev={ev} platos={platos} ings={ings} recetas={recetas} onAdd={onAdd} onAddBulk={onAddBulk} onUpdate={onUpdate} onDelete={onDelete} />}
       {tab === "personal"  && <PersonalTab  ev={ev} personal={personal} equipoBase={equipoBase} onAdd={onAdd} onDelete={onDelete} />}
       {tab === "operacion" && <OperacionTab ev={ev} timings={timings} checkC={checkC} checkB={checkB} checkE={checkE} nota={nota} onAdd={onAdd} onUpdate={onUpdate} onDelete={onDelete} />}
