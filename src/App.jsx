@@ -1140,7 +1140,7 @@ function OperacionesList({ events, operaciones, setOpEventId }) {
 }
 
 // ─── Operaciones Detail ───────────────────────────────────────────────────────
-function OperacionDetalle({ ev, ops, recetas, onAdd, onAddBulk, onUpdate, onDelete, onBack }) {
+function OperacionDetalle({ ev, ops, recetas, equipoBase, onAdd, onAddBulk, onUpdate, onDelete, onBack }) {
   const [tab, setTab] = useState("menu");
   const venue     = (ev.notes||"").match(/Sede: ([^|]+)/)?.[1]?.trim() || "";
   const personal  = ops.filter(o => o.tipo === "personal").sort((a,b) => a.orden - b.orden);
@@ -1175,7 +1175,7 @@ function OperacionDetalle({ ev, ops, recetas, onAdd, onAddBulk, onUpdate, onDele
         ))}
       </div>
       {tab === "menu"      && <MenuTab      ev={ev} platos={platos} ings={ings} recetas={recetas} onAdd={onAdd} onAddBulk={onAddBulk} onUpdate={onUpdate} onDelete={onDelete} />}
-      {tab === "personal"  && <PersonalTab  ev={ev} personal={personal} onAdd={onAdd} onDelete={onDelete} />}
+      {tab === "personal"  && <PersonalTab  ev={ev} personal={personal} equipoBase={equipoBase} onAdd={onAdd} onDelete={onDelete} />}
       {tab === "operacion" && <OperacionTab ev={ev} timings={timings} checkC={checkC} checkB={checkB} checkE={checkE} nota={nota} onAdd={onAdd} onUpdate={onUpdate} onDelete={onDelete} />}
       {tab === "post"      && <PostTab      ev={ev} pago={pago} referidos={referidos} onAdd={onAdd} onUpdate={onUpdate} onDelete={onDelete} />}
     </div>
@@ -1350,45 +1350,75 @@ function MenuTab({ ev, platos, ings, recetas, onAdd, onAddBulk, onUpdate, onDele
   );
 }
 
-function PersonalTab({ ev, personal, onAdd, onDelete }) {
+function PersonalTab({ ev, personal, equipoBase = [], onAdd, onDelete }) {
   const [show, setShow] = useState(false);
-  const [f, setF] = useState({ nombre: "", rol: ROLES_OP[0], horario: "", telefono: "", monto: "" });
+  const [selecId, setSelecId] = useState("");
+  const [f, setF] = useState({ horario: "", monto: "" });
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
-  const agregar = () => {
-    if (!f.nombre) return;
-    onAdd({ eventId: ev.id, tipo: "personal", campo1: f.nombre, campo2: f.rol, campo3: f.horario, campo4: f.telefono, campo5: f.monto, orden: personal.length + 1 });
-    setF({ nombre: "", rol: ROLES_OP[0], horario: "", telefono: "", monto: "" });
-    setShow(false);
+
+  const personaSelec = equipoBase.find(p => String(p.id) === selecId);
+
+  const seleccionar = id => {
+    setSelecId(id);
+    const p = equipoBase.find(x => String(x.id) === id);
+    if (p) setF({ horario: "", monto: p.tarifaEvento ? String(p.tarifaEvento) : "" });
+    else setF({ horario: "", monto: "" });
   };
+
+  const agregar = () => {
+    if (!personaSelec) return;
+    onAdd({ eventId: ev.id, tipo: "personal", campo1: personaSelec.nombre, campo2: personaSelec.rol, campo3: f.horario, campo4: personaSelec.telefono, campo5: f.monto, orden: personal.length + 1 });
+    setSelecId(""); setF({ horario: "", monto: "" }); setShow(false);
+  };
+
   const total = personal.reduce((s, p) => s + (parseFloat(p.campo5) || 0), 0);
+  const yaAgregados = new Set(personal.map(p => p.campo1));
+  const disponibles = equipoBase.filter(p => !yaAgregados.has(p.nombre));
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-        <span style={{ ...S.lbl, margin: 0 }}>Personal adicional · {personal.length} personas{total > 0 ? ` · ${fmtARS(total)}` : ""}</span>
+        <span style={{ ...S.lbl, margin: 0 }}>Personal · {personal.length} personas{total > 0 ? ` · ${fmtARS(total)}` : ""}</span>
         <button type="button" onClick={() => setShow(!show)} style={S.btnP}>+ Agregar</button>
       </div>
       {show && (
         <div style={{ ...S.card, marginBottom: "1rem", background: "#0D0D0B" }}>
-          <div style={{ display: "flex", gap: "1rem", marginBottom: "0.75rem" }}>
-            <div style={{ flex: 2 }}>
-              <label style={S.lbl}>Nombre *</label>
-              <input value={f.nombre} onChange={e => set("nombre", e.target.value)} style={S.inp} placeholder="Nombre completo" />
+          {equipoBase.length === 0 ? (
+            <div style={{ fontSize: "0.8rem", color: "#555045", padding: "0.5rem 0" }}>
+              No hay personal registrado. Primero cargá integrantes en el módulo Personal.
             </div>
-            <div style={{ flex: 1 }}>
-              <label style={S.lbl}>Rol</label>
-              <select value={f.rol} onChange={e => set("rol", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
-                {ROLES_OP.map(r => <option key={r}>{r}</option>)}
-              </select>
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: "1rem" }}>
-            <div style={{ flex: 1 }}><label style={S.lbl}>Horario</label><input value={f.horario} onChange={e => set("horario", e.target.value)} style={S.inp} placeholder="18hs - 23hs" /></div>
-            <div style={{ flex: 1 }}><label style={S.lbl}>Teléfono</label><input value={f.telefono} onChange={e => set("telefono", e.target.value)} style={S.inp} placeholder="351-xxx-xxxx" /></div>
-            <div style={{ flex: 1 }}><label style={S.lbl}>Monto (ARS)</label><input type="number" value={f.monto} onChange={e => set("monto", e.target.value)} style={S.inp} placeholder="0" /></div>
-          </div>
-          <div style={{ display: "flex", gap: "0.625rem", justifyContent: "flex-end", marginTop: "0.75rem" }}>
-            <button type="button" onClick={() => setShow(false)} style={S.btnS}>Cancelar</button>
-            <button type="button" onClick={agregar} style={S.btnP}>Agregar</button>
+          ) : (
+            <>
+              <div style={{ marginBottom: "0.75rem" }}>
+                <label style={S.lbl}>Seleccionar persona</label>
+                <select value={selecId} onChange={e => seleccionar(e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+                  <option value="">— Elegí un integrante —</option>
+                  {disponibles.map(p => (
+                    <option key={p.id} value={String(p.id)}>{p.nombre} · {p.rol}</option>
+                  ))}
+                  {disponibles.length === 0 && <option disabled>Todos los disponibles ya fueron agregados</option>}
+                </select>
+              </div>
+              {personaSelec && (
+                <div style={{ background: "rgba(211,154,89,0.05)", border: "1px solid rgba(211,154,89,0.12)", borderRadius: 5, padding: "0.6rem 0.75rem", marginBottom: "0.75rem", fontSize: "0.78rem", color: "#8A7A6A" }}>
+                  {personaSelec.rol}{personaSelec.telefono ? ` · ${personaSelec.telefono}` : ""}{personaSelec.disponible ? ` · ${personaSelec.disponible}` : ""}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: "1rem", marginBottom: "0.75rem" }}>
+                <div style={{ flex: 1 }}>
+                  <label style={S.lbl}>Horario</label>
+                  <input value={f.horario} onChange={e => set("horario", e.target.value)} style={S.inp} placeholder="18hs - 23hs" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={S.lbl}>Monto evento (ARS)</label>
+                  <input type="number" value={f.monto} onChange={e => set("monto", e.target.value)} style={S.inp} placeholder="0" />
+                </div>
+              </div>
+            </>
+          )}
+          <div style={{ display: "flex", gap: "0.625rem", justifyContent: "flex-end" }}>
+            <button type="button" onClick={() => { setShow(false); setSelecId(""); }} style={S.btnS}>Cancelar</button>
+            <button type="button" onClick={agregar} disabled={!personaSelec} style={{ ...S.btnP, opacity: personaSelec ? 1 : 0.4 }}>Agregar</button>
           </div>
         </div>
       )}
@@ -1881,7 +1911,7 @@ export default function App() {
         {view === "pipeline"  && <Pipeline  events={events} onMove={moveStage} onCard={setDetailEvent} onNew={() => setEventModal("new")} />}
         {view === "clients"   && <Clients   clients={clients} events={events} onNew={() => setClientModal("new")} onEdit={setClientModal} />}
         {view === "operaciones" && (opEventId
-          ? <OperacionDetalle ev={events.find(e => e.id === opEventId)} ops={operaciones.filter(o => o.eventId === opEventId)} recetas={recetas} onAdd={addOp} onAddBulk={addBulkOps} onUpdate={updateOp} onDelete={deleteOp} onBack={() => setOpEventId(null)} />
+          ? <OperacionDetalle ev={events.find(e => e.id === opEventId)} ops={operaciones.filter(o => o.eventId === opEventId)} recetas={recetas} equipoBase={personalDB} onAdd={addOp} onAddBulk={addBulkOps} onUpdate={updateOp} onDelete={deleteOp} onBack={() => setOpEventId(null)} />
           : <OperacionesList events={events} operaciones={operaciones} setOpEventId={setOpEventId} />
         )}
         {view === "personal"  && <PersonalModule personal={personalDB} onAdd={addPersonal} onUpdate={updatePersonal} onDelete={deletePersonal} />}
