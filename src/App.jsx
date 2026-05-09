@@ -946,6 +946,58 @@ const MENU_TIPOS = [
   { nombre: "Menú por pasos",      porPax: 3  },
   { nombre: "Tapeo",               porPax: 3  },
 ];
+
+const MENUS_ESTANDAR = {
+  "Finger food": [
+    "Pincho de Tortilla",
+    "Taquitos de Cuadril",
+    "Arepas de Pollo",
+    "Provoletas Ahumadas",
+    "Pincho de Pollo Marroquí",
+    "Brochette de Vegetales",
+    "Croquetas de Jamón Serrano",
+    "Portobellos a la Parrilla",
+  ],
+  "Finger food premium": [
+    "Pincho de Tortilla",
+    "Pincho de Pulpo",
+    "Taquitos de Cordero",
+    "Arepas de Pollo",
+    "Mollejas Laqueadas",
+    "Mini Sandwich Ojo de Bife",
+    "Brochette",
+    "Croquetas",
+    "Pancho de Masa Madre",
+  ],
+  "Merienda / Desayuno": [
+    "Mini Sandwich del Día",
+    "Mix de Cookies",
+    "Budín de Limón",
+    "Scon de Quesos",
+    "Chipá con Queso Azul",
+    "Frutas",
+    "Pan de Chocolate",
+    "Bakery Varios",
+    "Torta Tres Leches",
+  ],
+  "Menú por pasos": [
+    "Hummus de Pallares",
+    "Calamares Rebozados",
+    "Burrata con Peras Asadas",
+    "Ojo de Bife",
+    "Pacu Grillado",
+    "Postre del Día",
+  ],
+  "Tapeo": [
+    "Recepción Quesos y Fiambres",
+    "Tortilla Española",
+    "Taquitos de Cordero",
+    "Arepas de Pollo",
+    "Croquetas",
+    "Provoleta Ahumada",
+    "Pimientos Ahumados",
+  ],
+};
 const ROLES_OP = ["Mozo/a", "Bartender", "Coordinador/a", "Cocinero/a", "Sommelier", "Seguridad", "Limpieza", "DJ / Animación", "Fotografía", "Otro"];
 const parseOp = r => ({ ...r, id: toNum(r.id), eventId: toNum(r.eventId), orden: toNum(r.orden) || 0 });
 
@@ -1085,7 +1137,7 @@ function OperacionesList({ events, operaciones, setOpEventId }) {
 }
 
 // ─── Operaciones Detail ───────────────────────────────────────────────────────
-function OperacionDetalle({ ev, ops, recetas, onAdd, onUpdate, onDelete, onBack }) {
+function OperacionDetalle({ ev, ops, recetas, onAdd, onAddBulk, onUpdate, onDelete, onBack }) {
   const [tab, setTab] = useState("menu");
   const venue     = (ev.notes||"").match(/Sede: ([^|]+)/)?.[1]?.trim() || "";
   const personal  = ops.filter(o => o.tipo === "personal").sort((a,b) => a.orden - b.orden);
@@ -1119,7 +1171,7 @@ function OperacionDetalle({ ev, ops, recetas, onAdd, onUpdate, onDelete, onBack 
           </button>
         ))}
       </div>
-      {tab === "menu"      && <MenuTab      ev={ev} platos={platos} ings={ings} recetas={recetas} onAdd={onAdd} onUpdate={onUpdate} onDelete={onDelete} />}
+      {tab === "menu"      && <MenuTab      ev={ev} platos={platos} ings={ings} recetas={recetas} onAdd={onAdd} onAddBulk={onAddBulk} onUpdate={onUpdate} onDelete={onDelete} />}
       {tab === "personal"  && <PersonalTab  ev={ev} personal={personal} onAdd={onAdd} onDelete={onDelete} />}
       {tab === "operacion" && <OperacionTab ev={ev} timings={timings} checkC={checkC} checkB={checkB} checkE={checkE} nota={nota} onAdd={onAdd} onUpdate={onUpdate} onDelete={onDelete} />}
       {tab === "post"      && <PostTab      ev={ev} pago={pago} referidos={referidos} onAdd={onAdd} onUpdate={onUpdate} onDelete={onDelete} />}
@@ -1127,7 +1179,7 @@ function OperacionDetalle({ ev, ops, recetas, onAdd, onUpdate, onDelete, onBack 
   );
 }
 
-function MenuTab({ ev, platos, ings, recetas, onAdd, onUpdate, onDelete }) {
+function MenuTab({ ev, platos, ings, recetas, onAdd, onAddBulk, onUpdate, onDelete }) {
   const [show, setShow] = useState(false);
   const [menuTipo, setMenuTipo] = useState(MENU_TIPOS[0].nombre);
   const [busca, setBusca] = useState("");
@@ -1135,22 +1187,47 @@ function MenuTab({ ev, platos, ings, recetas, onAdd, onUpdate, onDelete }) {
   const [porc, setPorc] = useState("");
   const cfg = MENU_TIPOS.find(m => m.nombre === menuTipo) || MENU_TIPOS[0];
   const defPorc = Math.round(ev.guests * cfg.porPax);
-  const filtered = recetas.filter(r => r.nombre.toLowerCase().includes(busca.toLowerCase())).slice(0, 8);
-  const agregar = () => {
-    if (!selec) return;
-    const p = parseInt(porc) || defPorc;
-    onAdd({ eventId: ev.id, tipo: "plato", campo1: selec, campo2: menuTipo, campo3: String(p), campo4: "", campo5: "", orden: platos.length + 1 });
-    const receta = recetas.find(r => r.nombre === selec);
+
+  const recetasNombres = new Set(recetas.map(r => r.nombre.toLowerCase()));
+  const platosEstandar = (MENUS_ESTANDAR[menuTipo] || [])
+    .filter(n => !recetasNombres.has(n.toLowerCase()))
+    .map(n => ({ nombre: n, ingredientes: [] }));
+  const candidatos = [...recetas, ...platosEstandar];
+  const filtered = busca
+    ? candidatos.filter(r => r.nombre.toLowerCase().includes(busca.toLowerCase())).slice(0, 10)
+    : [];
+
+  const agregarPlato = (nombre, tipo, porciones, ingsFn) => {
+    onAdd({ eventId: ev.id, tipo: "plato", campo1: nombre, campo2: tipo, campo3: String(porciones), campo4: "", campo5: "", orden: platos.length + 1 });
+    const receta = recetas.find(r => r.nombre.toLowerCase() === nombre.toLowerCase());
     if (receta?.ingredientes?.length) {
       receta.ingredientes.forEach(ing => {
-        const total = (ing.cantidad * p).toFixed(3);
-        const existe = ings.find(i => i.campo1 === ing.ingrediente);
+        const total = (ing.cantidad * porciones).toFixed(3);
+        const existe = ingsFn ? ingsFn.find(i => i.campo1 === ing.ingrediente) : ings.find(i => i.campo1 === ing.ingrediente);
         if (existe) onUpdate({ ...existe, campo2: String((parseFloat(existe.campo2) + parseFloat(total)).toFixed(3)) });
         else onAdd({ eventId: ev.id, tipo: "ingrediente", campo1: ing.ingrediente, campo2: total, campo3: ing.unidad, campo4: "Pendiente", campo5: "", orden: ings.length + 1 });
       });
     }
+  };
+
+  const agregar = () => {
+    if (!selec) return;
+    const p = parseInt(porc) || defPorc;
+    agregarPlato(selec, menuTipo, p, ings);
     setShow(false); setBusca(""); setSelec(""); setPorc("");
   };
+
+  const cargarEstandar = () => {
+    const p = parseInt(porc) || defPorc;
+    const lista = MENUS_ESTANDAR[menuTipo] || [];
+    const nuevosPlatos = lista.map((nombre, idx) => ({
+      eventId: ev.id, tipo: "plato", campo1: nombre, campo2: menuTipo,
+      campo3: String(p), campo4: "", campo5: "", orden: platos.length + 1 + idx,
+    }));
+    onAddBulk(nuevosPlatos);
+    setShow(false); setPorc("");
+  };
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
@@ -1162,7 +1239,7 @@ function MenuTab({ ev, platos, ings, recetas, onAdd, onUpdate, onDelete }) {
           <div style={{ display: "flex", gap: "1rem", marginBottom: "0.75rem" }}>
             <div style={{ flex: 1 }}>
               <label style={S.lbl}>Tipo de menú</label>
-              <select value={menuTipo} onChange={e => { setMenuTipo(e.target.value); setPorc(""); }} style={{ ...S.inp, appearance: "none" }}>
+              <select value={menuTipo} onChange={e => { setMenuTipo(e.target.value); setPorc(""); setBusca(""); setSelec(""); }} style={{ ...S.inp, appearance: "none" }}>
                 {MENU_TIPOS.map(m => <option key={m.nombre}>{m.nombre}</option>)}
               </select>
             </div>
@@ -1171,10 +1248,21 @@ function MenuTab({ ev, platos, ings, recetas, onAdd, onUpdate, onDelete }) {
               <input type="number" value={porc} onChange={e => setPorc(e.target.value)} placeholder={String(defPorc)} style={S.inp} />
             </div>
           </div>
+          {MENUS_ESTANDAR[menuTipo] && (
+            <div style={{ marginBottom: "0.75rem", padding: "0.75rem", background: "rgba(211,154,89,0.05)", border: "1px solid rgba(211,154,89,0.15)", borderRadius: 5 }}>
+              <div style={{ fontSize: "0.72rem", color: "#7A6A50", marginBottom: "0.5rem" }}>
+                Menú estándar · {MENUS_ESTANDAR[menuTipo].length} platos: {MENUS_ESTANDAR[menuTipo].join(", ")}
+              </div>
+              <button type="button" onClick={cargarEstandar}
+                style={{ ...S.btnS, fontSize: "0.72rem", color: GOLD, borderColor: "rgba(211,154,89,0.3)" }}>
+                Cargar menú completo ({parseInt(porc) || defPorc} porciones c/u)
+              </button>
+            </div>
+          )}
           <div style={{ marginBottom: "0.75rem" }}>
-            <label style={S.lbl}>Buscar plato</label>
+            <label style={S.lbl}>Buscar plato individual</label>
             <input value={busca} onChange={e => { setBusca(e.target.value); setSelec(""); }} placeholder="Escribí el nombre del plato..." style={S.inp} />
-            {busca && filtered.length > 0 && (
+            {filtered.length > 0 && (
               <div style={{ background: "#181816", border: "1px solid #232320", borderRadius: 5, marginTop: 4, maxHeight: 180, overflowY: "auto" }}>
                 {filtered.map((r, i) => (
                   <div key={i} onClick={() => { setSelec(r.nombre); setBusca(r.nombre); }}
@@ -1185,11 +1273,26 @@ function MenuTab({ ev, platos, ings, recetas, onAdd, onUpdate, onDelete }) {
                 ))}
               </div>
             )}
+            {busca && filtered.length === 0 && (
+              <div style={{ fontSize: "0.72rem", color: "#454035", marginTop: 6, padding: "0.5rem 0.75rem" }}>
+                Sin resultados para "{busca}". Podés agregarlo igual escribiendo el nombre y haciendo click en Agregar.
+              </div>
+            )}
           </div>
-          {selec && <div style={{ fontSize: "0.75rem", color: GOLD, marginBottom: "0.75rem" }}>✓ {selec} · {parseInt(porc) || defPorc} porciones</div>}
+          {(selec || busca) && (
+            <div style={{ fontSize: "0.75rem", color: GOLD, marginBottom: "0.75rem" }}>
+              ✓ {selec || busca} · {parseInt(porc) || defPorc} porciones
+            </div>
+          )}
           <div style={{ display: "flex", gap: "0.625rem", justifyContent: "flex-end" }}>
-            <button type="button" onClick={() => setShow(false)} style={S.btnS}>Cancelar</button>
-            <button type="button" onClick={agregar} disabled={!selec} style={{ ...S.btnP, opacity: selec ? 1 : 0.4 }}>Agregar</button>
+            <button type="button" onClick={() => { setShow(false); setBusca(""); setSelec(""); }} style={S.btnS}>Cancelar</button>
+            <button type="button" onClick={() => {
+              const nombre = selec || busca.trim();
+              if (!nombre) return;
+              const p = parseInt(porc) || defPorc;
+              agregarPlato(nombre, menuTipo, p, ings);
+              setShow(false); setBusca(""); setSelec(""); setPorc("");
+            }} disabled={!selec && !busca.trim()} style={{ ...S.btnP, opacity: (selec || busca.trim()) ? 1 : 0.4 }}>Agregar</button>
           </div>
         </div>
       )}
@@ -1540,6 +1643,12 @@ export default function App() {
   const addOp    = op => { const n = { ...op, id: nextId(operaciones) }; setOperaciones(p => [...p, n]); sync("add", "Operaciones", n); };
   const updateOp = op => { setOperaciones(p => p.map(o => o.id === op.id ? op : o)); sync("update", "Operaciones", op); };
   const deleteOp = id => { setOperaciones(p => p.filter(o => o.id !== id)); sync("delete", "Operaciones", null, id); };
+  const addBulkOps = ops => {
+    const base = operaciones.length ? Math.max(...operaciones.map(x => Number(x.id) || 0)) : 0;
+    const news = ops.map((op, i) => ({ ...op, id: base + 1 + i }));
+    setOperaciones(p => [...p, ...news]);
+    news.forEach(op => sync("add", "Operaciones", op));
+  };
 
   const addPayment = p => {
     const n = { ...p, id: nextId(payments) };
@@ -1604,7 +1713,7 @@ export default function App() {
         {view === "pipeline"  && <Pipeline  events={events} onMove={moveStage} onCard={setDetailEvent} onNew={() => setEventModal("new")} />}
         {view === "clients"   && <Clients   clients={clients} events={events} onNew={() => setClientModal("new")} onEdit={setClientModal} />}
         {view === "operaciones" && (opEventId
-          ? <OperacionDetalle ev={events.find(e => e.id === opEventId)} ops={operaciones.filter(o => o.eventId === opEventId)} recetas={recetas} onAdd={addOp} onUpdate={updateOp} onDelete={deleteOp} onBack={() => setOpEventId(null)} />
+          ? <OperacionDetalle ev={events.find(e => e.id === opEventId)} ops={operaciones.filter(o => o.eventId === opEventId)} recetas={recetas} onAdd={addOp} onAddBulk={addBulkOps} onUpdate={updateOp} onDelete={deleteOp} onBack={() => setOpEventId(null)} />
           : <OperacionesList events={events} operaciones={operaciones} setOpEventId={setOpEventId} />
         )}
         {view === "pagos"     && <Pagos     events={events} payments={payments} onAdd={addPayment} onDelete={deletePayment} />}
