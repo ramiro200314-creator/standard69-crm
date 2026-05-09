@@ -43,6 +43,7 @@ const parseEvent     = r => ({ ...r, id: toNum(r.id), clientId: toNum(r.clientId
 const parsePayment   = r => ({ ...r, id: toNum(r.id), eventId: toNum(r.eventId), amount: toNum(r.amount), date: toDate(r.date) });
 const parseCost      = r => ({ ...r, id: toNum(r.id), eventId: r.eventId ? toNum(r.eventId) : null, amount: toNum(r.amount), date: toDate(r.date) });
 const parsePostventa = r => ({ ...r, eventId: toNum(r.eventId), rating: toNum(r.rating) });
+const parsePersonal  = r => ({ ...r, id: toNum(r.id), tarifaEvento: toNum(r.tarifaEvento) });
 
 // ─── Brand ────────────────────────────────────────────────────────────────────
 const GOLD   = "#D39A59";   // Standard 69 brand gold
@@ -171,6 +172,7 @@ const NAV = [
   { id: "pipeline",    label: "Pipeline",    sym: "⊞" },
   { id: "clients",     label: "Clientes",    sym: "◎" },
   { id: "operaciones", label: "Operaciones", sym: "◫" },
+  { id: "personal",    label: "Personal",    sym: "◉" },
   { id: "pagos",       label: "Pagos",       sym: "◈" },
   { id: "postventa",   label: "Post-venta",  sym: "◇" },
   { id: "pyl",         label: "P & L",       sym: "◬" },
@@ -1550,6 +1552,162 @@ function PostTab({ ev, pago, referidos, onAdd, onUpdate, onDelete }) {
   );
 }
 
+// ─── Personal Module ──────────────────────────────────────────────────────────
+const DISPONIBILIDAD = ["Disponible", "No disponible", "A confirmar"];
+
+function PersonalForm({ person, onSave, onClose }) {
+  const blank = { nombre: "", rol: ROLES_OP[0], telefono: "", email: "", tarifaEvento: "", disponible: "Disponible", notas: "" };
+  const [f, setF] = useState(person ? { ...person } : blank);
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+  return (
+    <Modal title={person ? "Editar persona" : "Nuevo integrante"} onClose={onClose}>
+      <div style={{ display: "flex", gap: "1rem" }}>
+        <Field label="Nombre completo *" half>
+          <input value={f.nombre} onChange={e => set("nombre", e.target.value)} style={S.inp} placeholder="Nombre y apellido" autoFocus />
+        </Field>
+        <Field label="Rol" half>
+          <select value={f.rol} onChange={e => set("rol", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+            {ROLES_OP.map(r => <option key={r}>{r}</option>)}
+          </select>
+        </Field>
+      </div>
+      <div style={{ display: "flex", gap: "1rem" }}>
+        <Field label="Teléfono" half>
+          <input value={f.telefono} onChange={e => set("telefono", e.target.value)} style={S.inp} placeholder="351-555-0000" />
+        </Field>
+        <Field label="Email" half>
+          <input type="email" value={f.email} onChange={e => set("email", e.target.value)} style={S.inp} placeholder="email@ejemplo.com" />
+        </Field>
+      </div>
+      <div style={{ display: "flex", gap: "1rem" }}>
+        <Field label="Tarifa por evento (ARS)" half>
+          <input type="number" value={f.tarifaEvento} onChange={e => set("tarifaEvento", e.target.value)} style={S.inp} placeholder="0" />
+        </Field>
+        <Field label="Disponibilidad" half>
+          <select value={f.disponible} onChange={e => set("disponible", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+            {DISPONIBILIDAD.map(d => <option key={d}>{d}</option>)}
+          </select>
+        </Field>
+      </div>
+      <Field label="Notas">
+        <textarea value={f.notas} onChange={e => set("notas", e.target.value)} style={{ ...S.inp, minHeight: 70, resize: "vertical" }} placeholder="Especialidades, restricciones, referencias..." />
+      </Field>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.625rem", marginTop: "0.5rem" }}>
+        <button type="button" onClick={onClose} style={S.btnS}>Cancelar</button>
+        <button type="button" onClick={() => { if (!f.nombre) return; onSave(f); }} style={S.btnP}>Guardar</button>
+      </div>
+    </Modal>
+  );
+}
+
+function PersonalModule({ personal, onAdd, onUpdate, onDelete }) {
+  const [modal, setModal] = useState(null);
+  const [busca, setBusca] = useState("");
+  const [rolFiltro, setRolFiltro] = useState("");
+
+  const DISP_COLOR = { "Disponible": "#7EB89A", "No disponible": "#D05050", "A confirmar": GOLD };
+
+  const lista = personal.filter(p => {
+    const q = busca.toLowerCase();
+    const matchQ = !q || p.nombre.toLowerCase().includes(q) || p.rol.toLowerCase().includes(q);
+    const matchR = !rolFiltro || p.rol === rolFiltro;
+    return matchQ && matchR;
+  });
+
+  const roles = [...new Set(personal.map(p => p.rol))].sort();
+  const totalTarifa = personal.reduce((s, p) => s + (p.tarifaEvento || 0), 0);
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "2rem" }}>
+        <div>
+          <h1 style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.5rem", fontWeight: 400, color: "#EDE8DF", letterSpacing: "0.18em", textTransform: "uppercase", margin: 0 }}>Personal</h1>
+          <div style={{ color: "#555045", fontSize: "0.78rem", marginTop: 2 }}>{personal.length} integrantes registrados</div>
+        </div>
+        <button type="button" onClick={() => setModal("new")} style={S.btnP}>+ Nuevo integrante</button>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "0.875rem", marginBottom: "1.75rem" }}>
+        {[
+          { lbl: "Total en equipo",  val: personal.length,                      sub: "integrantes" },
+          { lbl: "Disponibles",      val: personal.filter(p => p.disponible === "Disponible").length, sub: "ahora mismo" },
+          { lbl: "Tarifa total",     val: fmtARS(totalTarifa),                  sub: "suma de tarifas", gold: true },
+        ].map(({ lbl, val, sub, gold }) => (
+          <div key={lbl} style={S.card}>
+            <div style={{ ...S.lbl }}>{lbl}</div>
+            <div style={{ fontSize: "1.75rem", fontWeight: 300, color: gold ? GOLD : "#EDE8DF", lineHeight: 1.1 }}>{val}</div>
+            <div style={{ fontSize: "0.68rem", color: "#3A3530", marginTop: 3 }}>{sub}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1.25rem" }}>
+        <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar por nombre o rol..." style={{ ...S.inp, maxWidth: 300 }} />
+        <select value={rolFiltro} onChange={e => setRolFiltro(e.target.value)} style={{ ...S.inp, width: "auto", appearance: "none", minWidth: 160 }}>
+          <option value="">Todos los roles</option>
+          {roles.map(r => <option key={r}>{r}</option>)}
+        </select>
+      </div>
+
+      {lista.length === 0 ? (
+        <div style={{ ...S.card, textAlign: "center", color: "#3A3530", fontSize: "0.85rem", padding: "3rem" }}>
+          {personal.length === 0 ? "Aún no hay personal registrado. Agregá el primer integrante." : "Sin resultados para la búsqueda."}
+        </div>
+      ) : (
+        <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #1C1C18" }}>
+                {["Nombre", "Rol", "Teléfono", "Tarifa evento", "Disponibilidad", ""].map(h => (
+                  <th key={h} style={{ padding: "0.65rem 1rem", textAlign: "left", ...S.lbl, marginBottom: 0 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {lista.map(p => {
+                const dc = DISP_COLOR[p.disponible] || "#555045";
+                return (
+                  <tr key={p.id} style={{ borderBottom: "1px solid #141412" }}>
+                    <td style={{ padding: "0.85rem 1rem" }}>
+                      <div style={{ fontSize: "0.875rem", color: "#EDE8DF", fontWeight: 500 }}>{p.nombre}</div>
+                      {p.email && <div style={{ fontSize: "0.68rem", color: "#454035", marginTop: 2 }}>{p.email}</div>}
+                    </td>
+                    <td style={{ padding: "0.85rem 1rem", fontSize: "0.78rem", color: "#8A7A6A" }}>{p.rol}</td>
+                    <td style={{ padding: "0.85rem 1rem", fontSize: "0.8rem", color: "#6A6055" }}>{p.telefono || "—"}</td>
+                    <td style={{ padding: "0.85rem 1rem", fontSize: "0.875rem", color: p.tarifaEvento ? GOLD : "#3A3530" }}>
+                      {p.tarifaEvento ? fmtARS(p.tarifaEvento) : "—"}
+                    </td>
+                    <td style={{ padding: "0.85rem 1rem" }}>
+                      <span style={{ fontSize: "0.72rem", color: dc, background: `${dc}18`, border: `1px solid ${dc}30`, padding: "2px 10px", borderRadius: 20 }}>
+                        {p.disponible}
+                      </span>
+                    </td>
+                    <td style={{ padding: "0.85rem 1rem", textAlign: "right" }}>
+                      <div style={{ display: "flex", gap: "0.4rem", justifyContent: "flex-end" }}>
+                        <button type="button" onClick={() => setModal(p)} style={{ ...S.btnS, padding: "0.2rem 0.6rem", fontSize: "0.7rem" }}>Editar</button>
+                        <button type="button" onClick={() => { if (confirm(`¿Eliminar a ${p.nombre}?`)) onDelete(p.id); }}
+                          style={{ ...S.btnS, padding: "0.2rem 0.5rem", fontSize: "0.7rem", color: "#D05050", borderColor: "rgba(208,80,80,0.2)" }}>×</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {modal && (
+        <PersonalForm
+          person={modal === "new" ? null : modal}
+          onSave={data => { modal === "new" ? onAdd(data) : onUpdate({ ...modal, ...data }); setModal(null); }}
+          onClose={() => setModal(null)}
+        />
+      )}
+    </div>
+  );
+}
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [view, setView] = useState("dashboard");
@@ -1566,6 +1724,7 @@ export default function App() {
   const [costs,        setCosts]        = useState([]);
   const [postventas,   setPostventas]   = useState([]);
   const [operaciones,  setOperaciones]  = useState([]);
+  const [personalDB,   setPersonalDB]   = useState([]);
   const [recetas,      setRecetas]      = useState([]);
 
   const [eventModal,  setEventModal]  = useState(null);
@@ -1582,6 +1741,7 @@ export default function App() {
         if (data.costos?.length)      setCosts(data.costos.map(parseCost));
         if (data.postventas?.length)  setPostventas(data.postventas.map(parsePostventa));
         if (data.operaciones?.length) setOperaciones(data.operaciones.map(parseOp));
+        if (data.personal?.length)    setPersonalDB(data.personal.map(parsePersonal));
         setLoading(false);
       })
       .catch(err => { setLoadError(err.message); setLoading(false); });
@@ -1679,6 +1839,9 @@ export default function App() {
     });
     sync("upsert", "Postventas", pv);
   };
+  const addPersonal    = p => { const n = { ...p, id: nextId(personalDB) }; setPersonalDB(prev => [...prev, n]); sync("add", "Personal", n); };
+  const updatePersonal = p => { setPersonalDB(prev => prev.map(x => x.id === p.id ? p : x)); sync("update", "Personal", p); };
+  const deletePersonal = id => { setPersonalDB(prev => prev.filter(x => x.id !== id)); sync("delete", "Personal", null, id); };
 
   if (!authChecked) return (
     <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "#080808" }}>
@@ -1720,6 +1883,7 @@ export default function App() {
           ? <OperacionDetalle ev={events.find(e => e.id === opEventId)} ops={operaciones.filter(o => o.eventId === opEventId)} recetas={recetas} onAdd={addOp} onAddBulk={addBulkOps} onUpdate={updateOp} onDelete={deleteOp} onBack={() => setOpEventId(null)} />
           : <OperacionesList events={events} operaciones={operaciones} setOpEventId={setOpEventId} />
         )}
+        {view === "personal"  && <PersonalModule personal={personalDB} onAdd={addPersonal} onUpdate={updatePersonal} onDelete={deletePersonal} />}
         {view === "pagos"     && <Pagos     events={events} payments={payments} onAdd={addPayment} onDelete={deletePayment} />}
         {view === "postventa" && <PostVenta events={events} postventas={postventas} onSave={savePostventa} />}
         {view === "pyl"       && <PyL       events={events} payments={payments} costs={costs} onAddCost={addCost} onDeleteCost={deleteCost} />}
