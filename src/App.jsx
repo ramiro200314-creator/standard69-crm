@@ -936,7 +936,7 @@ function EventForm({ ev, clients, onSave, onClose }) {
   );
 }
 
-const CANALES = ["Instagram", "Referido", "WhatsApp", "Web", "Punto W", "LinkedIn", "Facebook", "Evento", "Otro"];
+const CANALES = ["Campaña Meta Ads", "Instagram", "Ramiro", "Javier Rodriguez", "Otro referido", "Web", "Punto W", "LinkedIn"];
 
 function ClientForm({ client, onSave, onClose }) {
   const [f, setF] = useState(client ? { ...client } : { name: "", company: "", phone: "", email: "", type: "Privado", canal: "", notes: "" });
