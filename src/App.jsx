@@ -1616,7 +1616,7 @@ function PersonalModule({ personal, onAdd, onUpdate, onDelete }) {
   });
 
   const roles = [...new Set(personal.map(p => p.rol))].sort();
-  const totalTarifa = personal.reduce((s, p) => s + (p.tarifaEvento || 0), 0);
+  const totalTarifa = personal.reduce((s, p) => s + (Number(p.tarifaEvento) || 0), 0);
 
   return (
     <div>
@@ -1840,8 +1840,8 @@ export default function App() {
     });
     sync("upsert", "Postventas", pv);
   };
-  const addPersonal    = p => { const n = { ...p, id: nextId(personalDB) }; setPersonalDB(prev => [...prev, n]); sync("add", "Personal", n); };
-  const updatePersonal = p => { setPersonalDB(prev => prev.map(x => x.id === p.id ? p : x)); sync("update", "Personal", p); };
+  const addPersonal    = p => { const n = parsePersonal({ ...p, id: nextId(personalDB) }); setPersonalDB(prev => [...prev, n]); sync("add", "Personal", n); };
+  const updatePersonal = p => { const n = parsePersonal(p); setPersonalDB(prev => prev.map(x => x.id === n.id ? n : x)); sync("update", "Personal", n); };
   const deletePersonal = id => { setPersonalDB(prev => prev.filter(x => x.id !== id)); sync("delete", "Personal", null, id); };
 
   if (!authChecked) return (
