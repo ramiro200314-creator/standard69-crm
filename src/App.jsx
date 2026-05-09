@@ -174,11 +174,17 @@ const NAV = [
   { id: "clients",     label: "Clientes",    sym: "◎" },
   { id: "operaciones", label: "Operaciones", sym: "◫" },
   { id: "personal",    label: "Personal",    sym: "◉" },
-  { id: "pagos",       label: "Pagos",       sym: "◈" },
+  { id: "pagos",       label: "Pagos",       sym: "◈", roles: ["admin"] },
   { id: "postventa",   label: "Post-venta",  sym: "◇" },
-  { id: "pyl",         label: "P & L",       sym: "◬" },
+  { id: "pyl",         label: "P & L",       sym: "◬", roles: ["admin"] },
   { id: "marketing",   label: "Marketing",   sym: "◐" },
+  { id: "usuarios",    label: "Usuarios",    sym: "◑", roles: ["admin"] },
 ];
+
+const canView = (navId, role) => {
+  const item = NAV.find(n => n.id === navId);
+  return !item?.roles || item.roles.includes(role);
+};
 
 function Sidebar({ view, setView, events, payments, syncing, user, onLogout }) {
   const active  = events.filter(e => e.stage !== "Post-venta").length;
@@ -193,7 +199,7 @@ function Sidebar({ view, setView, events, payments, syncing, user, onLogout }) {
         <div style={{ fontSize: "0.55rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "#2E2A25", marginTop: 4 }}>Event CRM</div>
       </div>
       <nav style={{ flex: 1 }}>
-        {NAV.map(n => (
+        {NAV.filter(n => canView(n.id, user?.role)).map(n => (
           <button key={n.id} type="button" onClick={() => setView(n.id)} style={{
             display: "flex", alignItems: "center", gap: "0.7rem", width: "100%",
             padding: "0.7rem 1.25rem", background: "none", border: "none",
@@ -2565,6 +2571,135 @@ function Marketing({ marketing, onAdd, onUpdate, onDelete }) {
   );
 }
 
+// ─── Usuarios ─────────────────────────────────────────────────────────────────
+const ROLE_LABELS  = { admin: "Administrador", operacion: "Operación" };
+const ROLE_COLORS  = { admin: GOLD, operacion: "#7EB89A" };
+const ROLE_MODULES = {
+  admin:     "Acceso completo",
+  operacion: "Sin acceso a P & L ni Pagos",
+};
+
+function UserManagement({ usuarios, currentUser, onCreate, onToggle }) {
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm]         = useState({ nombre: "", email: "", password: "", role: "operacion" });
+  const [saving, setSaving]     = useState(false);
+  const [err, setErr]           = useState("");
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  const submit = async () => {
+    if (!form.nombre.trim() || !form.email.trim() || !form.password.trim()) {
+      setErr("Completá todos los campos."); return;
+    }
+    if (form.password.length < 6) { setErr("La contraseña debe tener al menos 6 caracteres."); return; }
+    setSaving(true); setErr("");
+    try {
+      await onCreate(form);
+      setForm({ nombre: "", email: "", password: "", role: "operacion" });
+      setShowForm(false);
+    } catch(e) { setErr(e.message); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
+        <div>
+          <h1 style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.5rem", fontWeight: 400, color: "#EDE8DF", letterSpacing: "0.18em", textTransform: "uppercase", margin: 0 }}>Usuarios</h1>
+          <div style={{ color: "#555045", fontSize: "0.78rem", marginTop: 2 }}>Accesos al sistema · Standard 69</div>
+        </div>
+        <button type="button" onClick={() => { setShowForm(true); setErr(""); }} style={S.btnP}>+ Nuevo usuario</button>
+      </div>
+
+      {/* Roles info */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.875rem", marginBottom: "1.5rem" }}>
+        {Object.entries(ROLE_MODULES).map(([role, desc]) => (
+          <div key={role} style={S.card}>
+            <span style={{ display: "inline-block", fontSize: "0.68rem", padding: "2px 10px", borderRadius: 20, background: "rgba(0,0,0,0.35)", border: `1px solid rgba(${role === "admin" ? "211,154,89" : "126,184,154"},0.3)`, color: ROLE_COLORS[role], marginBottom: "0.5rem" }}>
+              {ROLE_LABELS[role]}
+            </span>
+            <div style={{ fontSize: "0.78rem", color: "#7A7260" }}>{desc}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* User list */}
+      <div style={S.card}>
+        {usuarios.length === 0 && <div style={{ color: "#4A4540", fontSize: "0.875rem" }}>Sin usuarios registrados.</div>}
+        {usuarios.length > 0 && (
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                {["Nombre", "Email", "Rol", "Estado", ""].map((h, i) => (
+                  <th key={i} style={{ ...S.th, padding: "0 1.5rem 0.75rem 0" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {usuarios.map(u => {
+                const isMe = String(u.email).toLowerCase() === String(currentUser.email).toLowerCase();
+                return (
+                  <tr key={u.id} style={{ borderTop: "1px solid #181818", opacity: String(u.active) === "false" || u.active === false ? 0.4 : 1 }}>
+                    <td style={{ padding: "0.65rem 1.5rem 0.65rem 0", fontSize: "0.825rem", color: "#F0EAD8" }}>
+                      {u.nombre}
+                      {isMe && <span style={{ fontSize: "0.58rem", color: "#454035", marginLeft: 8, letterSpacing: "0.12em", textTransform: "uppercase" }}>vos</span>}
+                    </td>
+                    <td style={{ padding: "0.65rem 1.5rem 0.65rem 0", fontSize: "0.78rem", color: "#7A7260" }}>{u.email}</td>
+                    <td style={{ padding: "0.65rem 1.5rem 0.65rem 0" }}>
+                      <span style={{ fontSize: "0.68rem", padding: "2px 10px", borderRadius: 20, background: "rgba(0,0,0,0.3)", border: `1px solid rgba(${u.role === "admin" ? "211,154,89" : "126,184,154"},0.25)`, color: ROLE_COLORS[u.role] || "#7A7260" }}>
+                        {ROLE_LABELS[u.role] || u.role}
+                      </span>
+                    </td>
+                    <td style={{ padding: "0.65rem 1.5rem 0.65rem 0" }}>
+                      <span style={{ fontSize: "0.72rem", color: (String(u.active) === "true" || u.active === true) ? "#34D399" : "#555045" }}>
+                        {(String(u.active) === "true" || u.active === true) ? "Activo" : "Inactivo"}
+                      </span>
+                    </td>
+                    <td style={{ padding: "0.65rem 0", textAlign: "right" }}>
+                      {!isMe && (
+                        <button type="button" onClick={() => onToggle(u)}
+                          style={{ ...S.btnS, fontSize: "0.72rem", padding: "0.25rem 0.75rem" }}>
+                          {(String(u.active) === "true" || u.active === true) ? "Desactivar" : "Activar"}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {showForm && (
+        <Modal title="Nuevo usuario" onClose={() => { setShowForm(false); setErr(""); }}>
+          <Field label="Nombre completo *">
+            <input value={form.nombre} onChange={e => set("nombre", e.target.value)} style={S.inp} placeholder="Ej: Juan García" />
+          </Field>
+          <Field label="Email *">
+            <input type="email" value={form.email} onChange={e => set("email", e.target.value)} style={S.inp} placeholder="juan@ejemplo.com" />
+          </Field>
+          <Field label="Contraseña *">
+            <input type="password" value={form.password} onChange={e => set("password", e.target.value)} style={S.inp} placeholder="Mínimo 6 caracteres" />
+          </Field>
+          <Field label="Rol">
+            <select value={form.role} onChange={e => set("role", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+              <option value="operacion">Operación — sin P&L ni Pagos</option>
+              <option value="admin">Administrador — acceso completo</option>
+            </select>
+          </Field>
+          {err && <div style={{ fontSize: "0.78rem", color: "#D05050", margin: "0.25rem 0 0.5rem" }}>{err}</div>}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.625rem", marginTop: "0.5rem" }}>
+            <button type="button" onClick={() => { setShowForm(false); setErr(""); }} style={S.btnS}>Cancelar</button>
+            <button type="button" onClick={submit} disabled={saving} style={{ ...S.btnP, opacity: saving ? 0.6 : 1 }}>
+              {saving ? "Creando..." : "Crear usuario"}
+            </button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [view, setView] = useState("dashboard");
@@ -2584,6 +2719,7 @@ export default function App() {
   const [personalDB,   setPersonalDB]   = useState([]);
   const [recetas,      setRecetas]      = useState([]);
   const [marketingDB,  setMarketingDB]  = useState([]);
+  const [usuariosDB,   setUsuariosDB]   = useState([]);
 
   const [eventModal,  setEventModal]  = useState(null);
   const [clientModal, setClientModal] = useState(null);
@@ -2601,6 +2737,7 @@ export default function App() {
         if (data.operaciones?.length) setOperaciones(data.operaciones.map(parseOp));
         if (data.personal?.length)    setPersonalDB(data.personal.map(parsePersonal));
         if (data.marketing?.length)   setMarketingDB(data.marketing.map(parseMarketing));
+        if (data.usuarios?.length)    setUsuariosDB(data.usuarios);
         setLoading(false);
       })
       .catch(err => { setLoadError(err.message); setLoading(false); });
@@ -2710,6 +2847,19 @@ export default function App() {
   const updateMarketing = m => { const n = parseMarketing(m); setMarketingDB(prev => prev.map(x => x.id === n.id ? n : x)); sync("update", "Marketing", n); };
   const deleteMarketing = id => { setMarketingDB(prev => prev.filter(x => x.id !== id)); sync("delete", "Marketing", null, id); };
 
+  const createUser = async (form) => {
+    setSyncing(true);
+    const json = await sheetsPost({ action: "createUser", data: form }).finally(() => setSyncing(false));
+    if (!json.ok) throw new Error(json.error || "Error al crear usuario");
+    const updated = await sheetsGet();
+    if (updated.usuarios) setUsuariosDB(updated.usuarios);
+  };
+  const toggleUser = u => {
+    const next = !(String(u.active) === "true" || u.active === true);
+    setUsuariosDB(prev => prev.map(x => x.id === u.id ? { ...x, active: next } : x));
+    sheetsPost({ action: "setUserActive", data: { id: u.id, active: next } }).catch(() => {});
+  };
+
   if (!authChecked) return (
     <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "#080808" }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
@@ -2743,18 +2893,19 @@ export default function App() {
     <div style={{ display: "flex", height: "100vh", background: "#080808", fontFamily: "'Jost',sans-serif", color: "#EDE8DF" }}>
       <Sidebar view={view} setView={setView} events={events} payments={payments} syncing={syncing} user={user} onLogout={handleLogout} />
       <main style={{ flex: 1, overflowY: "auto", padding: "2rem", minWidth: 0 }}>
-        {view === "dashboard" && <Dashboard events={events} clients={clients} payments={payments} costs={costs} setView={setView} setDetailEvent={setDetailEvent} />}
-        {view === "pipeline"  && <Pipeline  events={events} onMove={moveStage} onCard={setDetailEvent} onNew={() => setEventModal("new")} />}
-        {view === "clients"   && <Clients   clients={clients} events={events} onNew={() => setClientModal("new")} onEdit={setClientModal} />}
+        {view === "dashboard"  && <Dashboard events={events} clients={clients} payments={payments} costs={costs} setView={setView} setDetailEvent={setDetailEvent} />}
+        {view === "pipeline"   && <Pipeline  events={events} onMove={moveStage} onCard={setDetailEvent} onNew={() => setEventModal("new")} />}
+        {view === "clients"    && <Clients   clients={clients} events={events} onNew={() => setClientModal("new")} onEdit={setClientModal} />}
         {view === "operaciones" && (opEventId
           ? <OperacionDetalle ev={events.find(e => e.id === opEventId)} ops={operaciones.filter(o => o.eventId === opEventId)} recetas={recetas} equipoBase={personalDB} onAdd={addOp} onAddBulk={addBulkOps} onUpdate={updateOp} onDelete={deleteOp} onBack={() => setOpEventId(null)} />
           : <OperacionesList events={events} operaciones={operaciones} setOpEventId={setOpEventId} />
         )}
-        {view === "personal"  && <PersonalModule personal={personalDB} onAdd={addPersonal} onUpdate={updatePersonal} onDelete={deletePersonal} />}
-        {view === "pagos"     && <Pagos     events={events} payments={payments} onAdd={addPayment} onUpdate={updatePayment} onDelete={deletePayment} />}
+        {view === "personal"   && <PersonalModule personal={personalDB} onAdd={addPersonal} onUpdate={updatePersonal} onDelete={deletePersonal} />}
+        {view === "pagos"      && canView("pagos", user?.role)    && <Pagos  events={events} payments={payments} onAdd={addPayment} onUpdate={updatePayment} onDelete={deletePayment} />}
         {view === "postventa"  && <PostVenta events={events} postventas={postventas} onSave={savePostventa} />}
-        {view === "pyl"        && <PyL       events={events} payments={payments} costs={costs} onAddCost={addCost} onDeleteCost={deleteCost} />}
+        {view === "pyl"        && canView("pyl", user?.role)      && <PyL    events={events} payments={payments} costs={costs} onAddCost={addCost} onDeleteCost={deleteCost} />}
         {view === "marketing"  && <Marketing marketing={marketingDB} onAdd={addMarketing} onUpdate={updateMarketing} onDelete={deleteMarketing} />}
+        {view === "usuarios"   && canView("usuarios", user?.role) && <UserManagement usuarios={usuariosDB} currentUser={user} onCreate={createUser} onToggle={toggleUser} />}
       </main>
 
       {detailEvent && (
