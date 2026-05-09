@@ -1431,8 +1431,8 @@ function OperacionDetalle({ ev, ops, recetas, equipoBase, onAdd, onAddBulk, onUp
           </div>
         </div>
         <div style={{ display: "flex", gap: "0.625rem" }}>
-          <button type="button" onClick={() => setShowPropuesta(true)} style={{ ...S.btnS, color: GOLD, borderColor: "rgba(211,154,89,0.3)" }}>Propuesta</button>
-          <button type="button" onClick={() => exportarPDF(ev, ops)} style={S.btnP}>Ops PDF</button>
+          <button type="button" onClick={() => exportarPDF(ev, ops)} style={S.btnS}>Hoja de operaciones</button>
+          <button type="button" onClick={() => setShowPropuesta(true)} style={S.btnP}>Generar presupuesto</button>
         </div>
       </div>
       <div style={{ display: "flex", borderBottom: "1px solid #1C1C18", marginBottom: "1.5rem" }}>
@@ -1506,7 +1506,7 @@ function MenuTab({ ev, platos, ings, recetas, onAdd, onAddBulk, onUpdate, onDele
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
         <span style={{ ...S.lbl, margin: 0 }}>Menú y producción</span>
-        <button type="button" onClick={() => setShow(!show)} style={S.btnP}>Propuesta</button>
+        <button type="button" onClick={() => setShow(!show)} style={S.btnP}>+ Agregar plato</button>
       </div>
       {show && (
         <div style={{ ...S.card, marginBottom: "1rem", background: "#0D0D0B" }}>
