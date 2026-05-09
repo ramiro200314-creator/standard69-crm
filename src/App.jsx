@@ -230,12 +230,20 @@ function Sidebar({ view, setView, events, payments, syncing, user, onLogout }) {
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 function Dashboard({ events, clients, payments, costs, setView, setDetailEvent }) {
-  const active     = events.filter(e => e.stage !== "Post-venta").length;
-  const confirmed  = events.filter(e => ["Confirmación","Evento","Post-venta"].includes(e.stage)).reduce((s, e) => s + e.amount, 0);
-  const collected  = payments.filter(p => p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
-  const totalCosts = costs.reduce((s, c) => s + c.amount, 0);
-  const gross      = confirmed - totalCosts;
   const tod        = todayStr();
+  const mesActual  = tod.slice(0, 7); // "YYYY-MM"
+
+  const active          = events.filter(e => e.stage !== "Post-venta").length;
+  const clientesActivos = new Set(events.filter(e => e.stage !== "Post-venta").map(e => e.clientId)).size;
+
+  const facturacionMes  = events
+    .filter(e => (e.date || "").startsWith(mesActual) && ["Confirmación","Evento","Post-venta"].includes(e.stage))
+    .reduce((s, e) => s + (e.amount || 0), 0);
+
+  const pendienteMes    = payments
+    .filter(p => (p.date || "").startsWith(mesActual) && p.status === "Pendiente")
+    .reduce((s, p) => s + (p.amount || 0), 0);
+
   const upcoming   = events.filter(e => e.date >= tod && e.stage !== "Post-venta").sort((a,b) => a.date > b.date ? 1 : -1).slice(0, 5);
 
   return (
@@ -246,10 +254,10 @@ function Dashboard({ events, clients, payments, costs, setView, setDetailEvent }
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "0.875rem", marginBottom: "1.75rem" }}>
         {[
-          { lbl: "Eventos activos",  val: active,            sub: "en pipeline" },
-          { lbl: "Cobrado efectivo", val: fmtARS(collected), sub: "pagos recibidos", gold: true },
-          { lbl: "Resultado neto",   val: fmtARS(gross),     sub: "revenue − costos", color: gross >= 0 ? "#34D399" : "#D05050" },
-          { lbl: "Clientes",         val: clients.length,    sub: "en base" },
+          { lbl: "Eventos activos",         val: active,                   sub: "en pipeline" },
+          { lbl: "Facturación del mes",      val: fmtARS(facturacionMes),  sub: new Date().toLocaleDateString("es-AR", { month: "long", year: "numeric" }), gold: true },
+          { lbl: "Pendiente de cobro",       val: fmtARS(pendienteMes),    sub: "vencimientos este mes", color: pendienteMes > 0 ? "#D39A59" : "#34D399" },
+          { lbl: "Clientes activos",         val: clientesActivos,          sub: "con eventos vigentes" },
         ].map((s, i) => (
           <div key={i} style={S.card}>
             <div style={S.lbl}>{s.lbl}</div>
