@@ -77,6 +77,7 @@ const S = {
   btnP: { padding: "0.55rem 1.4rem", background: GOLD, border: "none", borderRadius: 4, color: "#080808", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", letterSpacing: "0.08em", textTransform: "uppercase" },
   btnS: { padding: "0.5rem 1rem", background: "#181816", border: "1px solid #232320", borderRadius: 4, color: "#7A7260", fontSize: "0.8rem", cursor: "pointer", fontFamily: "inherit" },
   lbl:  { display: "block", fontSize: "0.58rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#454035", marginBottom: "0.4rem" },
+  th:   { fontSize: "0.58rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#454035", fontWeight: 400, textAlign: "left" },
 };
 
 function StageBadge({ stage }) {
@@ -1306,7 +1307,7 @@ function MenuTab({ ev, platos, ings, recetas, onAdd, onAddBulk, onUpdate, onDele
       {platos.length > 0 && (
         <div style={{ ...S.card, padding: 0, overflow: "hidden", marginBottom: "1rem" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr style={{ borderBottom: "1px solid #1C1C18" }}>{["Plato","Menú","Porciones",""].map(h => <th key={h} style={{ padding: "0.6rem 1rem", textAlign: "left", ...S.lbl, marginBottom: 0 }}>{h}</th>)}</tr></thead>
+            <thead><tr style={{ borderBottom: "1px solid #1C1C18" }}>{["Plato","Menú","Porciones",""].map(h => <th key={h} style={{ padding: "0.6rem 1rem", textAlign: "left", ...S.th, padding: "0.6rem 1rem" }}>{h}</th>)}</tr></thead>
             <tbody>{platos.map(p => (
               <tr key={p.id} style={{ borderBottom: "1px solid #141412" }}>
                 <td style={{ padding: "0.75rem 1rem", fontSize: "0.85rem", color: "#EDE8DF" }}>{p.campo1}</td>
@@ -1323,7 +1324,7 @@ function MenuTab({ ev, platos, ings, recetas, onAdd, onAddBulk, onUpdate, onDele
           <span style={{ ...S.lbl, display: "block", marginBottom: "0.75rem" }}>Lista de insumos</span>
           <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr style={{ borderBottom: "1px solid #1C1C18" }}>{["Ingrediente","Cantidad","Unidad","Estado",""].map(h => <th key={h} style={{ padding: "0.6rem 1rem", textAlign: "left", ...S.lbl, marginBottom: 0 }}>{h}</th>)}</tr></thead>
+              <thead><tr style={{ borderBottom: "1px solid #1C1C18" }}>{["Ingrediente","Cantidad","Unidad","Estado",""].map(h => <th key={h} style={{ padding: "0.6rem 1rem", textAlign: "left", ...S.th, padding: "0.6rem 1rem" }}>{h}</th>)}</tr></thead>
               <tbody>{ings.map(i => {
                 const col = i.campo4 === "Entregado" ? "#7EB89A" : i.campo4 === "Comprado" ? GOLD : "#555045";
                 return (
@@ -1395,7 +1396,7 @@ function PersonalTab({ ev, personal, onAdd, onDelete }) {
       {personal.length > 0 && (
         <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr style={{ borderBottom: "1px solid #1C1C18" }}>{["Nombre","Rol","Horario","Teléfono","Monto",""].map(h => <th key={h} style={{ padding: "0.6rem 1rem", textAlign: "left", ...S.lbl, marginBottom: 0 }}>{h}</th>)}</tr></thead>
+            <thead><tr style={{ borderBottom: "1px solid #1C1C18" }}>{["Nombre","Rol","Horario","Teléfono","Monto",""].map(h => <th key={h} style={{ padding: "0.6rem 1rem", textAlign: "left", ...S.th, padding: "0.6rem 1rem" }}>{h}</th>)}</tr></thead>
             <tbody>{personal.map(p => (
               <tr key={p.id} style={{ borderBottom: "1px solid #141412" }}>
                 <td style={{ padding: "0.75rem 1rem", fontSize: "0.85rem", color: "#EDE8DF", fontWeight: 500 }}>{p.campo1}</td>
@@ -1659,7 +1660,7 @@ function PersonalModule({ personal, onAdd, onUpdate, onDelete }) {
             <thead>
               <tr style={{ borderBottom: "1px solid #1C1C18" }}>
                 {["Nombre", "Rol", "Teléfono", "Tarifa evento", "Disponibilidad", ""].map(h => (
-                  <th key={h} style={{ padding: "0.65rem 1rem", textAlign: "left", ...S.lbl, marginBottom: 0 }}>{h}</th>
+                  <th key={h} style={{ ...S.th, padding: "0.65rem 1rem" }}>{h}</th>
                 ))}
               </tr>
             </thead>
