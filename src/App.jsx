@@ -629,7 +629,7 @@ function Pagos({ events, payments, onAdd, onUpdate, onDelete }) {
               onAdd={onAdd} onUpdate={onUpdate} onDelete={onDelete} />
           ))
       }
-      {showForm && <PagoForm events={events} onSave={d => { onAdd(d); setShowForm(false); }} onClose={() => setShowForm(false)} />}
+      {showForm && <PagoForm events={eventsInPeriod} onSave={d => { onAdd(d); setShowForm(false); }} onClose={() => setShowForm(false)} />}
     </div>
   );
 }
