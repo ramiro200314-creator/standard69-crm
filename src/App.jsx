@@ -38,7 +38,7 @@ const toDate = v => {
   if (!isNaN(d)) return d.toISOString().slice(0, 10);
   return "";
 };
-const parseClient    = r => ({ ...r, id: toNum(r.id) });
+const parseClient    = r => ({ ...r, id: toNum(r.id), canal: r.canal || "" });
 const parseEvent     = r => ({ ...r, id: toNum(r.id), clientId: toNum(r.clientId), guests: toNum(r.guests), amount: toNum(r.amount), date: toDate(r.date) });
 const parsePayment   = r => ({ ...r, id: toNum(r.id), eventId: toNum(r.eventId), amount: toNum(r.amount), date: toDate(r.date) });
 const parseCost      = r => ({ ...r, id: toNum(r.id), eventId: r.eventId ? toNum(r.eventId) : null, amount: toNum(r.amount), date: toDate(r.date) });
@@ -400,7 +400,7 @@ function Clients({ clients, events, onNew, onEdit }) {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: "1px solid #1A1A1A" }}>
-              {["Nombre", "Empresa", "Tipo", "Teléfono", "Email", "Eventos", "Revenue", ""].map(h => (
+              {["Nombre", "Empresa", "Tipo", "Canal", "Teléfono", "Email", "Eventos", "Revenue", ""].map(h => (
                 <th key={h} style={{ padding: "0.7rem 1rem", textAlign: "left", fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#454035", fontWeight: 500 }}>{h}</th>
               ))}
             </tr>
@@ -420,8 +420,11 @@ function Clients({ clients, events, onNew, onEdit }) {
                       {c.type}
                     </span>
                   </td>
-                  <td style={{ padding: "0.875rem 1rem", fontSize: "0.8rem", color: "#7A7068" }}>{c.phone}</td>
-                  <td style={{ padding: "0.875rem 1rem", fontSize: "0.8rem", color: "#7A7068" }}>{c.email}</td>
+                  <td style={{ padding: "0.875rem 1rem" }}>
+                    {c.canal ? <span style={{ fontSize: "0.65rem", padding: "2px 9px", borderRadius: 12, background: "rgba(211,154,89,0.1)", color: GOLD }}>{c.canal}</span> : <span style={{ color: "#2E2A25" }}>—</span>}
+                  </td>
+                  <td style={{ padding: "0.875rem 1rem", fontSize: "0.8rem", color: "#7A7068" }}>{c.phone || "—"}</td>
+                  <td style={{ padding: "0.875rem 1rem", fontSize: "0.8rem", color: "#7A7068" }}>{c.email || "—"}</td>
                   <td style={{ padding: "0.875rem 1rem", fontFamily: "'Cormorant Garamond',serif", fontSize: "1.3rem", color: cEvs.length > 0 ? GOLD : "#383330", fontWeight: 600 }}>{cEvs.length}</td>
                   <td style={{ padding: "0.875rem 1rem", fontSize: "0.8rem", color: revenue > 0 ? "#34D399" : "#383330" }}>{revenue > 0 ? fmtARS(revenue) : "—"}</td>
                   <td style={{ padding: "0.875rem 1rem" }}>
@@ -933,11 +936,13 @@ function EventForm({ ev, clients, onSave, onClose }) {
   );
 }
 
+const CANALES = ["Instagram", "Referido", "WhatsApp", "Web", "Punto W", "LinkedIn", "Facebook", "Evento", "Otro"];
+
 function ClientForm({ client, onSave, onClose }) {
-  const [f, setF] = useState(client ? { ...client } : { name: "", company: "", phone: "", email: "", type: "Privado", notes: "" });
+  const [f, setF] = useState(client ? { ...client } : { name: "", company: "", phone: "", email: "", type: "Privado", canal: "", notes: "" });
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
   const submit = () => {
-    if (!f.name || !f.email) { alert("Completá nombre y email."); return; }
+    if (!f.name) { alert("Completá el nombre."); return; }
     onSave(f);
   };
   return (
@@ -959,12 +964,18 @@ function ClientForm({ client, onSave, onClose }) {
         <Field label="Teléfono" half>
           <input value={f.phone} onChange={e => set("phone", e.target.value)} style={S.inp} placeholder="351-555-0000" />
         </Field>
-        <Field label="Email *" half>
+        <Field label="Email" half>
           <input type="email" value={f.email} onChange={e => set("email", e.target.value)} style={S.inp} placeholder="email@ejemplo.com" />
         </Field>
       </div>
+      <Field label="Canal de captación">
+        <select value={f.canal} onChange={e => set("canal", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+          <option value="">Sin especificar</option>
+          {CANALES.map(c => <option key={c}>{c}</option>)}
+        </select>
+      </Field>
       <Field label="Notas">
-        <textarea value={f.notes} onChange={e => set("notes", e.target.value)} style={{ ...S.inp, minHeight: 70, resize: "vertical" }} placeholder="Preferencias, cómo llegó el contacto..." />
+        <textarea value={f.notes} onChange={e => set("notes", e.target.value)} style={{ ...S.inp, minHeight: 70, resize: "vertical" }} placeholder="Observaciones..." />
       </Field>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.625rem", marginTop: "0.5rem" }}>
         <button type="button" onClick={onClose} style={S.btnS}>Cancelar</button>
