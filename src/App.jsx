@@ -465,9 +465,11 @@ function Pagos({ events, payments, onAdd, onDelete }) {
   const pendiente = base.filter(p => p.status === "Pendiente").reduce((s, p) => s + p.amount, 0);
   const vencido   = base.filter(p => p.status === "Vencido").reduce((s, p) => s + p.amount, 0);
   const filtered  = base;
-  const evProgress = events.filter(e => e.amount > 0).map(ev => {
-    const paid = payments.filter(p => p.eventId === ev.id && p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
-    return { ...ev, paid };
+  const evIdsEnPeriodo = new Set(base.map(p => p.eventId));
+  const evProgress = events.filter(e => e.amount > 0 && (period === "all" || evIdsEnPeriodo.has(e.id))).map(ev => {
+    const paid    = base.filter(p => p.eventId === ev.id && p.status === "Pagado").reduce((s, p) => s + p.amount, 0);
+    const pending = base.filter(p => p.eventId === ev.id && p.status === "Pendiente").reduce((s, p) => s + p.amount, 0);
+    return { ...ev, paid, pending };
   });
   return (
     <div>
@@ -497,15 +499,17 @@ function Pagos({ events, payments, onAdd, onDelete }) {
         ))}
       </div>
       <div style={{ ...S.card, marginBottom: "1.5rem" }}>
-        <div style={{ fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6A6055", marginBottom: "1rem" }}>Progreso de cobro por evento</div>
-        {evProgress.length === 0 && <div style={{ color: "#4A4540", fontSize: "0.875rem" }}>Sin eventos con monto asignado</div>}
+        <div style={{ fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6A6055", marginBottom: "1rem" }}>
+          Progreso de cobro por evento {period !== "all" && <span style={{ color: "#3A3530" }}>· {fmtMes(period)}</span>}
+        </div>
+        {evProgress.length === 0 && <div style={{ color: "#4A4540", fontSize: "0.875rem" }}>{period === "all" ? "Sin eventos con monto asignado" : "Sin pagos registrados en este período"}</div>}
         {evProgress.map(ev => {
           const pct = Math.min(100, Math.round((ev.paid / ev.amount) * 100));
           return (
             <div key={ev.id} style={{ marginBottom: "0.875rem" }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                 <span style={{ fontSize: "0.8rem", color: "#F0EAD8" }}>{ev.title} <span style={{ color: "#555045" }}>· {ev.clientName}</span></span>
-                <span style={{ fontSize: "0.75rem", color: GOLD }}>{fmtARS(ev.paid)} / {fmtARS(ev.amount)}</span>
+                <span style={{ fontSize: "0.75rem", color: GOLD }}>{fmtARS(ev.paid)} cobrado{ev.pending > 0 ? ` · ${fmtARS(ev.pending)} pendiente` : ""}</span>
               </div>
               <div style={{ background: "#1A1A1A", borderRadius: 4, height: 6 }}>
                 <div style={{ width: `${pct}%`, height: "100%", background: pct === 100 ? "#34D399" : GOLD, borderRadius: 4 }} />
