@@ -1386,16 +1386,18 @@ async function generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, line
   const FOOTER_FULL = `${FOOTER} &nbsp;·&nbsp; A D M S T A N D A R D 6 9 W @ G M A I L . C O M &nbsp;·&nbsp; + 5 4 9 3 5 1 8 1 4 - 7 3 7 3`;
 
   const BASE = window.location.origin;
-  const [b64Logo, b64Portada, b64Jardin, b64Mozo, b64Brindis] = await Promise.all([
+  const [b64Logo, b64Portada, b64Jardin, b64Mozo, b64Brindis, b64Salon, b64Plato] = await Promise.all([
     imgToB64(`${BASE}/STANDARD%20NEGRO.png`),
-    imgToB64(`${BASE}/FJ308033%20(2).jpg`),
-    imgToB64(`${BASE}/FJ308007%20(2)%20(4).jpg`),
-    imgToB64(`${BASE}/FJ301980%20(2).jpg`),
-    imgToB64(`${BASE}/IMG_0381.jpeg`),
+    imgToB64(`${BASE}/FJ308007%20(2)%20(4).jpg`), // terraza → portada grande
+    imgToB64(`${BASE}/FJ308033%20(2).jpg`),        // jardín → pequeña
+    imgToB64(`${BASE}/FJ301980%20(2).jpg`),        // mozo → pequeña
+    imgToB64(`${BASE}/IMG_0381.jpeg`),             // fachada → pág 2
+    imgToB64(`${BASE}/foto_salon.jpg`),            // salón → pequeña
+    imgToB64(`${BASE}/foto_plato.jpg`),            // plato → pequeña
   ]);
 
   const css = `@page{size:A4;margin:0}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#2a2520;font-size:13px}.page{width:210mm;min-height:297mm;position:relative;background:#F5F0E8;page-break-after:always;overflow:hidden}.ft{position:absolute;bottom:0;left:0;right:0;background:#1a1a18;color:#888;font-size:7.5px;letter-spacing:.18em;text-transform:uppercase;text-align:center;padding:11px 20px}
-/* P1 cover */.p1{display:flex;flex-direction:column;align-items:center;padding:36px 40px 50px}.p1-logo{margin-bottom:4px;text-align:center}.p1-logo img{height:42px;display:block;margin:0 auto}.p1-img{width:100%;height:310px;border-radius:3px;overflow:hidden;margin:28px 0 12px}.p1-img img{width:100%;height:100%;object-fit:cover;display:block}.p1-sub{display:flex;gap:12px;width:100%}.p1-sub-img{flex:1;height:188px;border-radius:3px;overflow:hidden}.p1-sub-img img{width:100%;height:100%;object-fit:cover;display:block}
+/* P1 cover */.p1{display:flex;flex-direction:column;align-items:center;padding:32px 40px 50px}.p1-logo{margin-bottom:4px;text-align:center}.p1-logo img{height:42px;display:block;margin:0 auto}.p1-img{width:100%;height:260px;border-radius:3px;overflow:hidden;margin:24px 0 10px}.p1-img img{width:100%;height:100%;object-fit:cover;display:block}.p1-sub{display:flex;gap:10px;width:100%;margin-bottom:10px}.p1-sub-img{flex:1;height:155px;border-radius:3px;overflow:hidden}.p1-sub-img img{width:100%;height:100%;object-fit:cover;display:block}
 /* P2 event info */.p2-img{width:100%;height:270px;overflow:hidden}.p2-img img{width:100%;height:100%;object-fit:cover;display:block}.p2-logo{text-align:center;padding:32px 0 24px}.p2-logo img{height:36px;display:block;margin:0 auto}.info-t{width:76%;margin:0 auto;border:1px solid #ccc;border-collapse:collapse}.info-t tr{border-bottom:1px solid #ddd}.info-t td{padding:14px 18px;font-size:12.5px}.info-t td:first-child{color:#8a8580;width:40%}.info-t td:last-child{background:#2a2520;color:#EDE8DF}
 /* P3 menu */.p3{padding:48px 46px 56px}.p3-ttl{text-align:center;font-size:1.25rem;font-weight:400;margin-bottom:7px}.gline{width:30px;height:1.5px;background:#c8a870;margin:0 auto 32px}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:28px}.sec{margin-bottom:18px}.sec-lbl{font-size:7.5px;letter-spacing:.18em;text-transform:uppercase;color:#2a2520;font-weight:700;margin-bottom:5px}.sec-hr{border:none;border-top:1px solid #d0c8bc;margin-bottom:9px}.sec-ul{list-style:disc;padding-left:15px}.sec-ul li{margin-bottom:6px;font-size:11.5px;line-height:1.45}.sec-nota{font-size:10px;font-style:italic;color:#8a7a6a;margin-top:5px}
 /* P4 budget */.p4{padding:48px 58px 56px}.p4-ttl{text-align:center;font-size:1.5rem;font-weight:400;letter-spacing:.08em;margin-bottom:7px}.bgt{width:100%;border-collapse:collapse;margin-top:26px}.bgt thead tr{background:#2a2520}.bgt thead th{color:#bbb;font-size:8px;letter-spacing:.16em;text-transform:uppercase;padding:13px 20px;font-weight:400;text-align:center}.b-svc{padding:17px 20px;text-align:center;font-size:13px;border-bottom:1px solid #ddd5c8}.b-val{padding:17px 20px;text-align:center;font-size:13px;border-bottom:1px solid #ddd5c8;border-left:1px solid #ddd5c8}.tot td{background:#2a2520;color:#EDE8DF;font-size:13px;padding:15px 20px;text-align:center;font-weight:500;letter-spacing:.08em}.pago{text-align:center;margin-top:52px}.pago-ttl{font-size:1.05rem;font-weight:400;margin-bottom:7px}.pago-line{font-size:11px;color:#6a6560;margin-bottom:4px}
@@ -1408,6 +1410,10 @@ async function generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, line
   <div class="p1-sub">
     <div class="p1-sub-img"><img src="${b64Jardin}" alt=""></div>
     <div class="p1-sub-img"><img src="${b64Mozo}" alt=""></div>
+  </div>
+  <div class="p1-sub">
+    <div class="p1-sub-img"><img src="${b64Salon}" alt=""></div>
+    <div class="p1-sub-img"><img src="${b64Plato}" alt=""></div>
   </div>
   <div class="ft">${FOOTER}</div>
 </div>
