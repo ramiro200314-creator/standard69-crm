@@ -2590,26 +2590,44 @@ const ROLE_MODULES = {
   operacion: "Sin acceso a P & L ni Pagos",
 };
 
-function UserManagement({ usuarios, currentUser, onCreate, onToggle }) {
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm]         = useState({ nombre: "", email: "", password: "", role: "operacion" });
-  const [saving, setSaving]     = useState(false);
-  const [err, setErr]           = useState("");
-  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+function UserManagement({ usuarios, currentUser, onCreate, onToggle, onResetPassword, onChangeRole }) {
+  const [showNew,   setShowNew]   = useState(false);
+  const [pwdUser,   setPwdUser]   = useState(null);  // usuario al que resetear pwd
+  const [newForm,   setNewForm]   = useState({ nombre: "", email: "", password: "", role: "operacion" });
+  const [pwdForm,   setPwdForm]   = useState({ password: "", confirm: "" });
+  const [saving,    setSaving]    = useState(false);
+  const [err,       setErr]       = useState("");
 
-  const submit = async () => {
-    if (!form.nombre.trim() || !form.email.trim() || !form.password.trim()) {
+  const setN = (k, v) => setNewForm(p => ({ ...p, [k]: v }));
+  const setP = (k, v) => setPwdForm(p => ({ ...p, [k]: v }));
+
+  const submitNew = async () => {
+    if (!newForm.nombre.trim() || !newForm.email.trim() || !newForm.password.trim()) {
       setErr("Completá todos los campos."); return;
     }
-    if (form.password.length < 6) { setErr("La contraseña debe tener al menos 6 caracteres."); return; }
+    if (newForm.password.length < 6) { setErr("Mínimo 6 caracteres."); return; }
     setSaving(true); setErr("");
     try {
-      await onCreate(form);
-      setForm({ nombre: "", email: "", password: "", role: "operacion" });
-      setShowForm(false);
+      await onCreate(newForm);
+      setNewForm({ nombre: "", email: "", password: "", role: "operacion" });
+      setShowNew(false);
     } catch(e) { setErr(e.message); }
     finally { setSaving(false); }
   };
+
+  const submitPwd = async () => {
+    if (!pwdForm.password.trim()) { setErr("Ingresá la nueva contraseña."); return; }
+    if (pwdForm.password.length < 6) { setErr("Mínimo 6 caracteres."); return; }
+    if (pwdForm.password !== pwdForm.confirm) { setErr("Las contraseñas no coinciden."); return; }
+    setSaving(true); setErr("");
+    try {
+      await onResetPassword(pwdUser, pwdForm.password);
+      setPwdUser(null); setPwdForm({ password: "", confirm: "" });
+    } catch(e) { setErr(e.message); }
+    finally { setSaving(false); }
+  };
+
+  const isActive = u => u.active === true || String(u.active).toLowerCase() === "true";
 
   return (
     <div>
@@ -2618,7 +2636,7 @@ function UserManagement({ usuarios, currentUser, onCreate, onToggle }) {
           <h1 style={{ fontFamily: "'Jost',sans-serif", fontSize: "1.5rem", fontWeight: 400, color: "#EDE8DF", letterSpacing: "0.18em", textTransform: "uppercase", margin: 0 }}>Usuarios</h1>
           <div style={{ color: "#555045", fontSize: "0.78rem", marginTop: 2 }}>Accesos al sistema · Standard 69</div>
         </div>
-        <button type="button" onClick={() => { setShowForm(true); setErr(""); }} style={S.btnP}>+ Nuevo usuario</button>
+        <button type="button" onClick={() => { setShowNew(true); setErr(""); }} style={S.btnP}>+ Nuevo usuario</button>
       </div>
 
       {/* Roles info */}
@@ -2640,36 +2658,49 @@ function UserManagement({ usuarios, currentUser, onCreate, onToggle }) {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                {["Nombre", "Email", "Rol", "Estado", ""].map((h, i) => (
-                  <th key={i} style={{ ...S.th, padding: "0 1.5rem 0.75rem 0" }}>{h}</th>
+                {["Nombre / Email", "Rol", "Estado", "Acciones"].map((h, i) => (
+                  <th key={i} style={{ ...S.th, padding: "0 1rem 0.75rem 0", textAlign: i === 3 ? "right" : "left" }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {usuarios.map(u => {
                 const isMe = String(u.email).toLowerCase() === String(currentUser.email).toLowerCase();
+                const active = isActive(u);
                 return (
-                  <tr key={u.id} style={{ borderTop: "1px solid #181818", opacity: String(u.active) === "false" || u.active === false ? 0.4 : 1 }}>
-                    <td style={{ padding: "0.65rem 1.5rem 0.65rem 0", fontSize: "0.825rem", color: "#F0EAD8" }}>
-                      {u.nombre}
-                      {isMe && <span style={{ fontSize: "0.58rem", color: "#454035", marginLeft: 8, letterSpacing: "0.12em", textTransform: "uppercase" }}>vos</span>}
+                  <tr key={u.id} style={{ borderTop: "1px solid #181818", opacity: active ? 1 : 0.4 }}>
+                    <td style={{ padding: "0.75rem 1rem 0.75rem 0" }}>
+                      <div style={{ fontSize: "0.825rem", color: "#F0EAD8", display: "flex", alignItems: "center", gap: 8 }}>
+                        {u.nombre}
+                        {isMe && <span style={{ fontSize: "0.58rem", color: "#454035", letterSpacing: "0.12em", textTransform: "uppercase" }}>vos</span>}
+                      </div>
+                      <div style={{ fontSize: "0.72rem", color: "#555045", marginTop: 2 }}>{u.email}</div>
                     </td>
-                    <td style={{ padding: "0.65rem 1.5rem 0.65rem 0", fontSize: "0.78rem", color: "#7A7260" }}>{u.email}</td>
-                    <td style={{ padding: "0.65rem 1.5rem 0.65rem 0" }}>
-                      <span style={{ fontSize: "0.68rem", padding: "2px 10px", borderRadius: 20, background: "rgba(0,0,0,0.3)", border: `1px solid rgba(${u.role === "admin" ? "211,154,89" : "126,184,154"},0.25)`, color: ROLE_COLORS[u.role] || "#7A7260" }}>
-                        {ROLE_LABELS[u.role] || u.role}
+                    <td style={{ padding: "0.75rem 1rem 0.75rem 0" }}>
+                      <select
+                        value={u.role || "operacion"}
+                        onChange={e => onChangeRole(u, e.target.value)}
+                        style={{ ...S.inp, width: "auto", fontSize: "0.72rem", padding: "0.3rem 0.6rem", appearance: "none",
+                          color: ROLE_COLORS[u.role] || "#7A7260",
+                          borderColor: `rgba(${u.role === "admin" ? "211,154,89" : "126,184,154"},0.3)` }}>
+                        <option value="admin">Administrador</option>
+                        <option value="operacion">Operación</option>
+                      </select>
+                    </td>
+                    <td style={{ padding: "0.75rem 1rem 0.75rem 0" }}>
+                      <span style={{ fontSize: "0.72rem", color: active ? "#34D399" : "#555045" }}>
+                        {active ? "● Activo" : "○ Inactivo"}
                       </span>
                     </td>
-                    <td style={{ padding: "0.65rem 1.5rem 0.65rem 0" }}>
-                      <span style={{ fontSize: "0.72rem", color: (String(u.active) === "true" || u.active === true) ? "#34D399" : "#555045" }}>
-                        {(String(u.active) === "true" || u.active === true) ? "Activo" : "Inactivo"}
-                      </span>
-                    </td>
-                    <td style={{ padding: "0.65rem 0", textAlign: "right" }}>
+                    <td style={{ padding: "0.75rem 0", textAlign: "right", whiteSpace: "nowrap" }}>
+                      <button type="button" onClick={() => { setPwdUser(u); setPwdForm({ password: "", confirm: "" }); setErr(""); }}
+                        style={{ ...S.btnS, fontSize: "0.72rem", padding: "0.25rem 0.75rem", marginRight: 6 }}>
+                        Cambiar clave
+                      </button>
                       {!isMe && (
                         <button type="button" onClick={() => onToggle(u)}
-                          style={{ ...S.btnS, fontSize: "0.72rem", padding: "0.25rem 0.75rem" }}>
-                          {(String(u.active) === "true" || u.active === true) ? "Desactivar" : "Activar"}
+                          style={{ ...S.btnS, fontSize: "0.72rem", padding: "0.25rem 0.75rem", color: active ? "#D08050" : "#34D399", borderColor: active ? "rgba(208,128,80,0.25)" : "rgba(52,211,153,0.25)" }}>
+                          {active ? "Desactivar" : "Activar"}
                         </button>
                       )}
                     </td>
@@ -2681,28 +2712,48 @@ function UserManagement({ usuarios, currentUser, onCreate, onToggle }) {
         )}
       </div>
 
-      {showForm && (
-        <Modal title="Nuevo usuario" onClose={() => { setShowForm(false); setErr(""); }}>
+      {/* Modal nuevo usuario */}
+      {showNew && (
+        <Modal title="Nuevo usuario" onClose={() => { setShowNew(false); setErr(""); }}>
           <Field label="Nombre completo *">
-            <input value={form.nombre} onChange={e => set("nombre", e.target.value)} style={S.inp} placeholder="Ej: Juan García" />
+            <input value={newForm.nombre} onChange={e => setN("nombre", e.target.value)} style={S.inp} placeholder="Ej: Juan García" autoFocus />
           </Field>
           <Field label="Email *">
-            <input type="email" value={form.email} onChange={e => set("email", e.target.value)} style={S.inp} placeholder="juan@ejemplo.com" />
+            <input type="email" value={newForm.email} onChange={e => setN("email", e.target.value)} style={S.inp} placeholder="juan@ejemplo.com" />
           </Field>
           <Field label="Contraseña *">
-            <input type="password" value={form.password} onChange={e => set("password", e.target.value)} style={S.inp} placeholder="Mínimo 6 caracteres" />
+            <input type="password" value={newForm.password} onChange={e => setN("password", e.target.value)} style={S.inp} placeholder="Mínimo 6 caracteres" />
           </Field>
-          <Field label="Rol">
-            <select value={form.role} onChange={e => set("role", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
-              <option value="operacion">Operación — sin P&L ni Pagos</option>
-              <option value="admin">Administrador — acceso completo</option>
+          <Field label="Tipo de acceso">
+            <select value={newForm.role} onChange={e => setN("role", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+              <option value="operacion">Operación — Pipeline, Clientes, Operaciones, Personal, Post-venta, Marketing</option>
+              <option value="admin">Administrador — acceso completo (incluye P&L y Pagos)</option>
             </select>
           </Field>
           {err && <div style={{ fontSize: "0.78rem", color: "#D05050", margin: "0.25rem 0 0.5rem" }}>{err}</div>}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.625rem", marginTop: "0.5rem" }}>
-            <button type="button" onClick={() => { setShowForm(false); setErr(""); }} style={S.btnS}>Cancelar</button>
-            <button type="button" onClick={submit} disabled={saving} style={{ ...S.btnP, opacity: saving ? 0.6 : 1 }}>
+            <button type="button" onClick={() => { setShowNew(false); setErr(""); }} style={S.btnS}>Cancelar</button>
+            <button type="button" onClick={submitNew} disabled={saving} style={{ ...S.btnP, opacity: saving ? 0.6 : 1 }}>
               {saving ? "Creando..." : "Crear usuario"}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal cambiar contraseña */}
+      {pwdUser && (
+        <Modal title={`Cambiar contraseña — ${pwdUser.nombre}`} onClose={() => { setPwdUser(null); setErr(""); }}>
+          <Field label="Nueva contraseña *">
+            <input type="password" value={pwdForm.password} onChange={e => setP("password", e.target.value)} style={S.inp} placeholder="Mínimo 6 caracteres" autoFocus />
+          </Field>
+          <Field label="Confirmar contraseña *">
+            <input type="password" value={pwdForm.confirm} onChange={e => setP("confirm", e.target.value)} style={S.inp} placeholder="Repetí la contraseña" />
+          </Field>
+          {err && <div style={{ fontSize: "0.78rem", color: "#D05050", margin: "0.25rem 0 0.5rem" }}>{err}</div>}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.625rem", marginTop: "0.5rem" }}>
+            <button type="button" onClick={() => { setPwdUser(null); setErr(""); }} style={S.btnS}>Cancelar</button>
+            <button type="button" onClick={submitPwd} disabled={saving} style={{ ...S.btnP, opacity: saving ? 0.6 : 1 }}>
+              {saving ? "Guardando..." : "Cambiar contraseña"}
             </button>
           </div>
         </Modal>
@@ -2870,6 +2921,14 @@ export default function App() {
     setUsuariosDB(prev => prev.map(x => x.id === u.id ? { ...x, active: next } : x));
     sheetsPost({ action: "setUserActive", data: { id: u.id, active: next } }).catch(() => {});
   };
+  const resetUserPassword = async (u, newPassword) => {
+    setSyncing(true);
+    await sheetsPost({ action: "resetUserPassword", data: { id: u.id, password: newPassword } }).finally(() => setSyncing(false));
+  };
+  const changeUserRole = (u, newRole) => {
+    setUsuariosDB(prev => prev.map(x => x.id === u.id ? { ...x, role: newRole } : x));
+    sheetsPost({ action: "changeUserRole", data: { id: u.id, role: newRole } }).catch(() => {});
+  };
 
   if (!authChecked) return (
     <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "#080808" }}>
@@ -2916,7 +2975,7 @@ export default function App() {
         {view === "postventa"  && <PostVenta events={events} postventas={postventas} onSave={savePostventa} />}
         {view === "pyl"        && canView("pyl", user?.role)      && <PyL    events={events} payments={payments} costs={costs} onAddCost={addCost} onDeleteCost={deleteCost} />}
         {view === "marketing"  && <Marketing marketing={marketingDB} onAdd={addMarketing} onUpdate={updateMarketing} onDelete={deleteMarketing} />}
-        {view === "usuarios"   && canView("usuarios", user?.role) && <UserManagement usuarios={usuariosDB} currentUser={user} onCreate={createUser} onToggle={toggleUser} />}
+        {view === "usuarios"   && canView("usuarios", user?.role) && <UserManagement usuarios={usuariosDB} currentUser={user} onCreate={createUser} onToggle={toggleUser} onResetPassword={resetUserPassword} onChangeRole={changeUserRole} />}
       </main>
 
       {detailEvent && (
