@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 
 // ─── Google Sheets API ────────────────────────────────────────────────────────
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCEuPro2M5gKImueRdnUr4kfCnyvy_qO_UYza2EzsipiFu0qvlSDx4X7HYes7FtJaHZQ/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyF94fI0SdX7_QX7qTjVg6nW40PAhpRLB8Xfk5V-sHZKfPmj4i_HA_whGB4HhOWcmMe9Q/exec";
 
 function xhr(url, options = {}) {
   return new Promise((resolve, reject) => {
