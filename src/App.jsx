@@ -1461,7 +1461,7 @@ async function generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, line
   <div class="gline"></div>
   <table class="bgt">
     <thead><tr><th>S E R V I C I O</th><th>V A L O R &nbsp; P O R &nbsp; P E R S O N A</th></tr></thead>
-    <tbody>${budgetRows}<tr class="tot"><td>T O T A L</td><td>${total > 0 ? "$ " + total.toLocaleString("es-AR") : "—"}</td></tr></tbody>
+    <tbody>${budgetRows}<tr class="tot"><td>T O T A L</td><td>${total > 0 ? "$ " + total.toLocaleString("es-AR") + " + IVA" : "—"}</td></tr></tbody>
   </table>
   <div class="pago">
     <div class="pago-ttl">Formas de pago</div>
