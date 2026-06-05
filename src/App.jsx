@@ -1355,7 +1355,7 @@ async function imgToB64(url) {
   } catch { return null; }
 }
 
-async function generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, lineas, menuEdits }) {
+async function generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, lineas, menuEdits, mainLabel }) {
   const t = PROPUESTA_TEMPLATES[menuTipo] || PROPUESTA_TEMPLATES["Finger food"];
   const me = menuEdits || {};
   const rcp  = me.recepcion !== undefined ? me.recepcion : t.recepcion;
@@ -1364,6 +1364,10 @@ async function generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, line
   const bsa  = me.bebSinAlc !== undefined ? me.bebSinAlc : t.bebSinAlc;
   const bca  = me.bebConAlc !== undefined ? me.bebConAlc : t.bebConAlc;
   const srv  = me.servicios !== undefined ? me.servicios : t.servicios;
+  const principalItems = me.principalItems?.length ? me.principalItems : (t.principal ? t.principal.items : null);
+  const principalAcomp = me.principalAcomp?.length ? me.principalAcomp : (t.principal ? t.principal.acomp : null);
+  const principalLabel = t.principal ? t.principal.label : null;
+  const efectiveMainLabel = mainLabel || t.mainLabel;
 
   const guests = ev.guests || 0;
   const li = item => `<li>${item}</li>`;
@@ -1371,8 +1375,8 @@ async function generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, line
 
   let leftCol = "";
   if (rcp && rcp.length) leftCol += sec("R E C E P C I Ó N", rcp, null);
-  leftCol += sec(t.mainLabel, main, null);
-  if (t.principal) leftCol += `<div class="sec"><div class="sec-lbl">${t.principal.label}</div><hr class="sec-hr"><ul class="sec-ul">${t.principal.items.map(li).join("")}</ul><p class="sec-nota">Acompañamiento</p><ul class="sec-ul">${t.principal.acomp.map(li).join("")}</ul></div>`;
+  leftCol += sec(efectiveMainLabel, main, null);
+  if (principalItems && principalItems.length) leftCol += `<div class="sec"><div class="sec-lbl">${principalLabel}</div><hr class="sec-hr"><ul class="sec-ul">${principalItems.map(li).join("")}</ul>${principalAcomp && principalAcomp.length ? `<p class="sec-nota">Acompañamiento</p><ul class="sec-ul">${principalAcomp.map(li).join("")}</ul>` : ""}</div>`;
 
   let rightCol = "";
   if (post && post.length) rightCol += sec("P O S T R E  O  C A F É  A  E L E C C I Ó N", post, t.postreNota);
@@ -1485,6 +1489,8 @@ function templateToMenuEdits(tipo) {
   return {
     recepcion: t.recepcion ? [...t.recepcion] : [],
     main: [...t.main],
+    principalItems: t.principal ? [...t.principal.items] : [],
+    principalAcomp: t.principal ? [...t.principal.acomp] : [],
     postre: t.postre ? [...t.postre] : [],
     bebSinAlc: t.bebSinAlc ? [...t.bebSinAlc] : [],
     bebConAlc: t.bebConAlc ? [...t.bebConAlc] : [],
@@ -1509,11 +1515,13 @@ function PropuestaModal({ ev, onClose }) {
   const [lineas, setLineas] = useState(() => PROPUESTA_TEMPLATES[defaultTipo()].precios.map(p => ({ ...p })));
   const [showMenuEdit, setShowMenuEdit] = useState(false);
   const [menuEdits, setMenuEdits] = useState(() => templateToMenuEdits(defaultTipo()));
+  const [mainLabel, setMainLabel] = useState(() => PROPUESTA_TEMPLATES[defaultTipo()].mainLabel.replace(/\s{2,}/g, " "));
 
   const cambiarTipo = tipo => {
     setMenuTipo(tipo);
     setLineas(PROPUESTA_TEMPLATES[tipo].precios.map(p => ({ ...p })));
     setMenuEdits(templateToMenuEdits(tipo));
+    setMainLabel(PROPUESTA_TEMPLATES[tipo].mainLabel.replace(/\s{2,}/g, " "));
   };
   const setL = (i, k, v) => setLineas(prev => prev.map((l, idx) => idx === i ? { ...l, [k]: v } : l));
   const editItem = (key, idx, val) => setMenuEdits(prev => ({ ...prev, [key]: prev[key].map((v, i) => i === idx ? val : v) }));
@@ -1521,14 +1529,15 @@ function PropuestaModal({ ev, onClose }) {
   const delItem  = (key, idx) => setMenuEdits(prev => ({ ...prev, [key]: prev[key].filter((_, i) => i !== idx) }));
 
   const tpl = PROPUESTA_TEMPLATES[menuTipo];
+  const hasPrincipal = !!(tpl.principal);
   const menuSections = [
-    { key: "recepcion", label: "Recepción" },
-    { key: "main",     label: tpl.mainLabel.replace(/\s{2,}/g, " ") },
-    { key: "postre",   label: "Postre / Café" },
-    { key: "bebSinAlc",label: "Bebidas sin alcohol" },
-    { key: "bebConAlc",label: "Bebidas con alcohol" },
-    { key: "servicios",label: "Servicios adicionales" },
-  ].filter(s => menuEdits[s.key].length > 0);
+    { key: "recepcion",      label: "Recepción" },
+    { key: "main",           label: mainLabel, editable: true },
+    { key: "postre",         label: "Postre / Café" },
+    { key: "bebSinAlc",      label: "Bebidas sin alcohol" },
+    { key: "bebConAlc",      label: "Bebidas con alcohol" },
+    { key: "servicios",      label: "Servicios adicionales" },
+  ].filter(s => menuEdits[s.key]?.length > 0);
 
   return (
     <Modal title="Generar Propuesta" onClose={onClose} wide>
@@ -1560,9 +1569,18 @@ function PropuestaModal({ ev, onClose }) {
         </div>
         {showMenuEdit && (
           <div style={{ ...S.card, padding: "0.75rem", background: "#0D0D0B", marginBottom: "0.75rem" }}>
-            {menuSections.map(({ key, label }) => (
+            {menuSections.map(({ key, label, editable }) => (
               <div key={key} style={{ marginBottom: "1rem" }}>
-                <div style={{ ...S.lbl, color: "#554030", marginBottom: "0.35rem" }}>{label}</div>
+                {editable ? (
+                  <input
+                    value={mainLabel}
+                    onChange={e => setMainLabel(e.target.value)}
+                    style={{ ...S.inp, fontSize: "0.7rem", letterSpacing: "0.12em", textTransform: "uppercase", color: GOLD, background: "transparent", border: "none", borderBottom: `1px solid rgba(211,154,89,0.3)`, borderRadius: 0, padding: "0 0 0.25rem 0", marginBottom: "0.5rem", fontWeight: 600 }}
+                    placeholder="Nombre de la sección"
+                  />
+                ) : (
+                  <div style={{ ...S.lbl, color: "#554030", marginBottom: "0.35rem" }}>{label}</div>
+                )}
                 {menuEdits[key].map((item, idx) => (
                   <div key={idx} style={{ display: "flex", gap: "0.4rem", marginBottom: "0.3rem", alignItems: "center" }}>
                     <input value={item} onChange={e => editItem(key, idx, e.target.value)}
@@ -1575,6 +1593,32 @@ function PropuestaModal({ ev, onClose }) {
                   style={{ ...S.btnS, fontSize: "0.62rem", padding: "0.2rem 0.6rem", marginTop: "0.15rem" }}>+ ítem</button>
               </div>
             ))}
+            {hasPrincipal && (
+              <div style={{ marginBottom: "1rem" }}>
+                <div style={{ ...S.lbl, color: "#554030", marginBottom: "0.35rem" }}>Principal — platos</div>
+                {menuEdits.principalItems.map((item, idx) => (
+                  <div key={idx} style={{ display: "flex", gap: "0.4rem", marginBottom: "0.3rem", alignItems: "center" }}>
+                    <input value={item} onChange={e => editItem("principalItems", idx, e.target.value)}
+                      style={{ ...S.inp, flex: 1, fontSize: "0.78rem" }} />
+                    <button type="button" onClick={() => delItem("principalItems", idx)}
+                      style={{ background: "none", border: "none", color: "#553030", cursor: "pointer", fontSize: "0.9rem", padding: "0 0.3rem" }}>×</button>
+                  </div>
+                ))}
+                <button type="button" onClick={() => addItem("principalItems")}
+                  style={{ ...S.btnS, fontSize: "0.62rem", padding: "0.2rem 0.6rem", marginTop: "0.15rem" }}>+ ítem</button>
+                <div style={{ ...S.lbl, color: "#554030", marginTop: "0.75rem", marginBottom: "0.35rem" }}>Principal — acompañamiento</div>
+                {menuEdits.principalAcomp.map((item, idx) => (
+                  <div key={idx} style={{ display: "flex", gap: "0.4rem", marginBottom: "0.3rem", alignItems: "center" }}>
+                    <input value={item} onChange={e => editItem("principalAcomp", idx, e.target.value)}
+                      style={{ ...S.inp, flex: 1, fontSize: "0.78rem" }} />
+                    <button type="button" onClick={() => delItem("principalAcomp", idx)}
+                      style={{ background: "none", border: "none", color: "#553030", cursor: "pointer", fontSize: "0.9rem", padding: "0 0.3rem" }}>×</button>
+                  </div>
+                ))}
+                <button type="button" onClick={() => addItem("principalAcomp")}
+                  style={{ ...S.btnS, fontSize: "0.62rem", padding: "0.2rem 0.6rem", marginTop: "0.15rem" }}>+ acompañamiento</button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1601,7 +1645,7 @@ function PropuestaModal({ ev, onClose }) {
         <button type="button" onClick={async e => {
           const btn = e.currentTarget;
           btn.disabled = true; btn.textContent = "Cargando imágenes...";
-          try { await generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, lineas, menuEdits }); onClose(); }
+          try { await generarPropuestaPDF(ev, { menuTipo, horario, lugar, espacio, lineas, menuEdits, mainLabel }); onClose(); }
           catch(err) { alert("Error al generar: " + err.message); btn.disabled = false; btn.textContent = "Generar PDF"; }
         }} style={S.btnP}>Generar PDF</button>
       </div>
