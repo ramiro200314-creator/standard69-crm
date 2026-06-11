@@ -1918,7 +1918,10 @@ function HojaFuncionModal({ ev, hoja, onSave, onClose }) {
         </select>
       </Field>
       <Field label="Propuesta">
-        <input value={f.propuestaGastro} onChange={e => set("propuestaGastro", e.target.value)} style={S.inp} placeholder="Ej: Menú por pasos, Tapeo..." />
+        <select value={f.propuestaGastro} onChange={e => set("propuestaGastro", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+          <option value="">Seleccionar...</option>
+          {MENU_TIPOS.map(m => <option key={m.nombre}>{m.nombre}</option>)}
+        </select>
       </Field>
       {cfg.entrada && (
         <Field label="Entrada">
