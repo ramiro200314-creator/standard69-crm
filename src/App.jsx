@@ -68,12 +68,13 @@ const COST_CATS = ["Personal", "Mercaderías", "Bebidas", "Insumos / Bebidas", "
 // ─── Hoja de Función ──────────────────────────────────────────────────────────
 const SUCURSALES_HF = ["Standard 69 Güemes", "Standard 69 Villa Warcalde"];
 const TIPOS_PROPUESTA_HF = {
-  "Cena / Almuerzo":         { entrada: true,  principal: true,  postre: true,  bebSinAlc: true,  bebConAlc: true,  menusEsp: true,  vajilla: true  },
-  "Cocktail / Standing":     { entrada: false, principal: false, postre: false, bebSinAlc: true,  bebConAlc: true,  menusEsp: true,  vajilla: false },
-  "Coffee Break / Desayuno": { entrada: false, principal: false, postre: false, bebSinAlc: true,  bebConAlc: false, menusEsp: false, vajilla: false },
-  "Wine Pairing / Maridaje": { entrada: true,  principal: true,  postre: true,  bebSinAlc: false, bebConAlc: true,  menusEsp: false, vajilla: false },
-  "Corporativo sin F&B":     { entrada: false, principal: false, postre: false, bebSinAlc: true,  bebConAlc: false, menusEsp: false, vajilla: false },
+  "Finger food":         { entrada: false, principal: false, postre: true,  bebSinAlc: true,  bebConAlc: true,  menusEsp: true,  vajilla: false },
+  "Finger food premium": { entrada: false, principal: false, postre: true,  bebSinAlc: true,  bebConAlc: true,  menusEsp: true,  vajilla: false },
+  "Merienda / Desayuno": { entrada: false, principal: false, postre: false, bebSinAlc: true,  bebConAlc: false, menusEsp: false, vajilla: false },
+  "Menú por pasos":      { entrada: true,  principal: true,  postre: true,  bebSinAlc: true,  bebConAlc: true,  menusEsp: true,  vajilla: true  },
+  "Tapeo":               { entrada: false, principal: false, postre: true,  bebSinAlc: true,  bebConAlc: true,  menusEsp: true,  vajilla: false },
 };
+const TIPO_PROPUESTA_HF_DEFAULT = TIPOS_PROPUESTA_HF["Menú por pasos"];
 const RESPONSABLES_HF = [
   { key: "respOperativo", area: "Operativo General", tarea: "Coordinación y supervisión integral del evento" },
   { key: "respCocina",    area: "Cocina / Chef",      tarea: "Producción gastronómica y tiempos de servicio" },
@@ -91,7 +92,6 @@ const blankHojaFuncion = ev => ({
   pax: ev.guests || "",
   notaEvento: "",
   timing: [{ hs: "", actividad: "", lugar: "" }, { hs: "", actividad: "", lugar: "" }, { hs: "", actividad: "", lugar: "" }],
-  tipoPropuesta: "Cena / Almuerzo",
   propuestaGastro: "", entrada: "", principal: "", postre: "", bebSinAlc: "", bebConAlc: "", menusEspeciales: "", vajilla: "", notaGastro: "",
   respOperativo: "", respCocina: "", respSalon: "", respBar: "",
   pedidosEspeciales: "",
@@ -1737,7 +1737,7 @@ function ClientForm({ client, onSave, onClose }) {
 
 // ─── Hoja de Función PDF ──────────────────────────────────────────────────────
 async function generarHojaFuncionPDF(ev, f) {
-  const cfg = TIPOS_PROPUESTA_HF[f.tipoPropuesta] || TIPOS_PROPUESTA_HF["Cena / Almuerzo"];
+  const cfg = TIPOS_PROPUESTA_HF[f.propuestaGastro] || TIPO_PROPUESTA_HF_DEFAULT;
   const fechaLarga = f.fecha ? new Date(f.fecha + "T00:00:00").toLocaleDateString("es-AR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }) : "";
   const val = v => (v !== undefined && v !== null && String(v).trim() !== "") ? String(v).replace(/\n/g, "<br>") : '<span class="vacio"></span>';
 
@@ -1816,7 +1816,7 @@ async function generarHojaFuncionPDF(ev, f) {
   </table>
 
   <div class="sec-bar">03 — Gastronomía</div>
-  <div class="tipo-badge">${f.tipoPropuesta}</div>
+  ${f.propuestaGastro ? `<div class="tipo-badge">${f.propuestaGastro}</div>` : ""}
   <table class="dl-table">${gastroRows}</table>
 
   <div class="ft">${FOOTER}</div>
@@ -1853,7 +1853,7 @@ function HojaFuncionModal({ ev, hoja, onSave, onClose }) {
   const addTiming = () => setF(p => ({ ...p, timing: [...p.timing, { hs: "", actividad: "", lugar: "" }] }));
   const delTiming = idx => setF(p => ({ ...p, timing: p.timing.filter((_, i) => i !== idx) }));
 
-  const cfg = TIPOS_PROPUESTA_HF[f.tipoPropuesta] || TIPOS_PROPUESTA_HF["Cena / Almuerzo"];
+  const cfg = TIPOS_PROPUESTA_HF[f.propuestaGastro] || TIPO_PROPUESTA_HF_DEFAULT;
 
   const submit = async () => {
     setSaving(true);
@@ -1912,11 +1912,6 @@ function HojaFuncionModal({ ev, hoja, onSave, onClose }) {
       </div>
 
       <div style={{ ...S.lbl, color: GOLD, margin: "1.25rem 0 0.5rem" }}>03 · Gastronomía</div>
-      <Field label="Tipo de propuesta">
-        <select value={f.tipoPropuesta} onChange={e => set("tipoPropuesta", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
-          {Object.keys(TIPOS_PROPUESTA_HF).map(t => <option key={t}>{t}</option>)}
-        </select>
-      </Field>
       <Field label="Propuesta">
         <select value={f.propuestaGastro} onChange={e => set("propuestaGastro", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
           <option value="">Seleccionar...</option>
