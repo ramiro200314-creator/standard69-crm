@@ -44,6 +44,8 @@ const parsePayment   = r => ({ ...r, id: toNum(r.id), eventId: toNum(r.eventId),
 const parseCost      = r => ({ ...r, id: toNum(r.id), eventId: r.eventId ? toNum(r.eventId) : null, amount: toNum(r.amount), date: toDate(r.date) });
 const parsePostventa = r => ({ ...r, eventId: toNum(r.eventId), rating: toNum(r.rating) });
 const parsePersonal  = r => ({ ...r, id: toNum(r.id), tarifaEvento: toNum(r.tarifaEvento) });
+const safeParseJSON  = (s, fallback) => { try { const v = JSON.parse(s); return v ?? fallback; } catch { return fallback; } };
+const parseHojaFuncion = r => ({ ...r, id: toNum(r.id), eventId: toNum(r.eventId), pax: toNum(r.pax), timing: safeParseJSON(r.timing, []) });
 
 // ─── Brand ────────────────────────────────────────────────────────────────────
 const GOLD   = "#D39A59";   // Standard 69 brand gold
@@ -62,6 +64,38 @@ const EVENT_TYPES = ["Cumpleaños", "Corporativo", "Aniversario", "Cena privada"
 const PAYMENT_METHODS = ["Transferencia", "Efectivo", "Débito", "Crédito", "Cheque"];
 const PAYMENT_CONCEPTS = ["Seña", "Cuota 1", "Cuota 2", "Saldo", "Pago total", "Otro"];
 const COST_CATS = ["Personal", "Mercaderías", "Bebidas", "Insumos / Bebidas", "Alquiler salón", "Decoración", "Audio / Video", "Catering extra", "Transporte", "Marketing", "Impuestos", "Previsiones", "Otro"];
+
+// ─── Hoja de Función ──────────────────────────────────────────────────────────
+const SUCURSALES_HF = ["Standard 69 Güemes", "Standard 69 Villa Warcalde"];
+const TIPOS_PROPUESTA_HF = {
+  "Cena / Almuerzo":         { entrada: true,  principal: true,  postre: true,  bebSinAlc: true,  bebConAlc: true,  menusEsp: true,  vajilla: true  },
+  "Cocktail / Standing":     { entrada: false, principal: false, postre: false, bebSinAlc: true,  bebConAlc: true,  menusEsp: true,  vajilla: false },
+  "Coffee Break / Desayuno": { entrada: false, principal: false, postre: false, bebSinAlc: true,  bebConAlc: false, menusEsp: false, vajilla: false },
+  "Wine Pairing / Maridaje": { entrada: true,  principal: true,  postre: true,  bebSinAlc: false, bebConAlc: true,  menusEsp: false, vajilla: false },
+  "Corporativo sin F&B":     { entrada: false, principal: false, postre: false, bebSinAlc: true,  bebConAlc: false, menusEsp: false, vajilla: false },
+};
+const RESPONSABLES_HF = [
+  { key: "respOperativo", area: "Operativo General", tarea: "Coordinación y supervisión integral del evento" },
+  { key: "respCocina",    area: "Cocina / Chef",      tarea: "Producción gastronómica y tiempos de servicio" },
+  { key: "respSalon",     area: "Salón / Maître",     tarea: "Servicio de mesa, orden y protocolo de sala" },
+  { key: "respBar",       area: "Bar / Sommelier",    tarea: "Bebidas, maridaje y servicio de barra" },
+];
+const blankHojaFuncion = ev => ({
+  eventId: ev.id,
+  nombreEvento: ev.title || "",
+  cliente: ev.clientName || "",
+  fecha: ev.date || "",
+  sucursal: SUCURSALES_HF[0],
+  espacioAsignado: (ev.notes || "").match(/Sede: ([^|]+)/)?.[1]?.trim() || "",
+  horario: "",
+  pax: ev.guests || "",
+  notaEvento: "",
+  timing: [{ hs: "", actividad: "", lugar: "" }, { hs: "", actividad: "", lugar: "" }, { hs: "", actividad: "", lugar: "" }],
+  tipoPropuesta: "Cena / Almuerzo",
+  propuestaGastro: "", entrada: "", principal: "", postre: "", bebSinAlc: "", bebConAlc: "", menusEspeciales: "", vajilla: "", notaGastro: "",
+  respOperativo: "", respCocina: "", respSalon: "", respBar: "",
+  pedidosEspeciales: "",
+});
 
 const fmtARS   = n => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n || 0);
 const fmtD     = d => d ? new Date(d + "T00:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "short" }) : "—";
@@ -1701,6 +1735,258 @@ function ClientForm({ client, onSave, onClose }) {
   );
 }
 
+// ─── Hoja de Función PDF ──────────────────────────────────────────────────────
+async function generarHojaFuncionPDF(ev, f) {
+  const cfg = TIPOS_PROPUESTA_HF[f.tipoPropuesta] || TIPOS_PROPUESTA_HF["Cena / Almuerzo"];
+  const fechaLarga = f.fecha ? new Date(f.fecha + "T00:00:00").toLocaleDateString("es-AR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }) : "";
+  const val = v => (v !== undefined && v !== null && String(v).trim() !== "") ? String(v).replace(/\n/g, "<br>") : '<span class="vacio"></span>';
+
+  const datosRows = [
+    ["Nombre del evento", f.nombreEvento],
+    ["Cliente", f.cliente],
+    ["Fecha", fechaLarga],
+    ["Sucursal", f.sucursal],
+    ["Espacio asignado", f.espacioAsignado],
+    ["Horario", f.horario],
+    ["PAX", f.pax],
+    ["Nota", f.notaEvento],
+  ].map(([l, v2]) => `<tr><td class="dl">${l}</td><td class="dv">${val(v2)}</td></tr>`).join("");
+
+  const timing = (f.timing && f.timing.length) ? f.timing : [{}, {}, {}];
+  const timingRows = timing.map(t =>
+    `<tr><td class="t-hs">${val(t.hs)}</td><td class="t-act">${val(t.actividad)}</td><td class="t-lug">${val(t.lugar)}</td></tr>`
+  ).join("");
+
+  const gastroFields = [["Propuesta", f.propuestaGastro]];
+  if (cfg.entrada)   gastroFields.push(["Entrada", f.entrada]);
+  if (cfg.principal) gastroFields.push(["Principal", f.principal]);
+  if (cfg.postre)    gastroFields.push(["Postre", f.postre]);
+  if (cfg.bebSinAlc) gastroFields.push(["Bebidas sin alcohol", f.bebSinAlc]);
+  if (cfg.bebConAlc) gastroFields.push(["Bebidas con alcohol", f.bebConAlc]);
+  if (cfg.menusEsp)  gastroFields.push(["Menús especiales", f.menusEspeciales]);
+  if (cfg.vajilla)   gastroFields.push(["Vajilla", f.vajilla]);
+  gastroFields.push(["Nota", f.notaGastro]);
+  const gastroRows = gastroFields.map(([l, v2]) => `<tr><td class="dl">${l}</td><td class="dv">${val(v2)}</td></tr>`).join("");
+
+  const respRows = RESPONSABLES_HF.map(r =>
+    `<tr><td class="r-area">${r.area}</td><td class="r-pers">${val(f[r.key])}</td><td class="r-tarea">${r.tarea}</td></tr>`
+  ).join("");
+
+  const FOOTER = `S T A N D A R D  6 9 &nbsp;·&nbsp; V I L L A  W A R C A L D E &nbsp;·&nbsp; C Ó R D O B A`;
+  const BASE = window.location.origin;
+  const b64Logo = await imgToB64(`${BASE}/STANDARD%20NEGRO.png`);
+
+  const css = `@page{size:A4;margin:0}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#2a2520;font-size:12px}
+.page{width:210mm;min-height:297mm;background:#fff;padding:30px 42px 56px;page-break-after:always;position:relative;box-sizing:border-box}
+.hf-logo{text-align:center;margin-bottom:14px}.hf-logo img{height:30px;display:block;margin:0 auto}
+.hf-ttl{text-align:center;font-size:1.15rem;letter-spacing:.2em;text-transform:uppercase;margin-bottom:4px;font-weight:600}
+.hf-sub{text-align:center;font-size:11px;color:#8a8580;margin-bottom:18px;text-transform:capitalize}
+.sec-bar{background:#1a1a18;color:#fff;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;padding:8px 14px;margin:16px 0 0;font-weight:600}
+.dl-table{width:100%;border-collapse:collapse;margin-bottom:4px}
+.dl-table tr{border-bottom:1px solid #e5ddd0}
+.dl-table .dl{width:30%;padding:8px 14px;color:#8a8580;font-size:10.5px;letter-spacing:.04em}
+.dl-table .dv{padding:8px 14px;font-size:12px}
+.vacio{display:inline-block;width:60%;border-bottom:1px solid #ccc;height:11px}
+.t-table{width:100%;border-collapse:collapse;margin-bottom:4px}
+.t-table th{background:#D39A59;color:#1a1a18;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;padding:8px 10px;font-weight:700;text-align:left}
+.t-table td{padding:9px 10px;border-bottom:1px solid #e5ddd0;font-size:11.5px}
+.t-hs{width:13%}.t-lug{width:22%}
+.r-table{width:100%;border-collapse:collapse}
+.r-table th{background:#D39A59;color:#1a1a18;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;padding:8px 10px;font-weight:700;text-align:left}
+.r-table td{padding:11px 10px;border-bottom:1px solid #e5ddd0;font-size:11.5px;vertical-align:top}
+.r-area{width:22%;font-weight:600}.r-pers{width:26%}.r-tarea{color:#6a6560}
+.tipo-badge{display:inline-block;background:#D39A59;color:#1a1a18;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;padding:4px 12px;border-radius:12px;margin:10px 0 6px;font-weight:700}
+.pedido-box{border:1px solid #e5ddd0;border-radius:4px;padding:16px;min-height:160px;font-size:12px;line-height:1.7;margin-top:10px}
+.ft{position:absolute;bottom:0;left:0;right:0;background:#1a1a18;color:#888;font-size:7.5px;letter-spacing:.18em;text-transform:uppercase;text-align:center;padding:11px 20px}
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>HojaFuncion_${f.nombreEvento || ev.title}_${f.fecha || ev.date}</title><style>${css}</style></head><body>
+<div class="page">
+  ${b64Logo ? `<div class="hf-logo"><img src="${b64Logo}" alt="Standard 69"></div>` : ""}
+  <div class="hf-ttl">Hoja de Función</div>
+  <div class="hf-sub">${fechaLarga || ""}</div>
+
+  <div class="sec-bar">01 — Datos del evento</div>
+  <table class="dl-table">${datosRows}</table>
+
+  <div class="sec-bar">02 — Timing</div>
+  <table class="t-table">
+    <thead><tr><th>HS</th><th>Actividad</th><th>Lugar</th></tr></thead>
+    <tbody>${timingRows}</tbody>
+  </table>
+
+  <div class="sec-bar">03 — Gastronomía</div>
+  <div class="tipo-badge">${f.tipoPropuesta}</div>
+  <table class="dl-table">${gastroRows}</table>
+
+  <div class="ft">${FOOTER}</div>
+</div>
+<div class="page">
+  ${b64Logo ? `<div class="hf-logo"><img src="${b64Logo}" alt="Standard 69"></div>` : ""}
+  <div class="hf-ttl">Hoja de Función</div>
+  <div class="hf-sub">${f.nombreEvento || ev.title || ""}</div>
+
+  <div class="sec-bar">04 — Responsables por área</div>
+  <table class="r-table">
+    <thead><tr><th>Área</th><th>Persona asignada</th><th>Tarea principal</th></tr></thead>
+    <tbody>${respRows}</tbody>
+  </table>
+
+  <div class="sec-bar">05 — Pedidos especiales</div>
+  <div class="pedido-box">${f.pedidosEspeciales ? String(f.pedidosEspeciales).replace(/\n/g, "<br>") : '<span style="color:#bbb">—</span>'}</div>
+
+  <div class="ft">${FOOTER}</div>
+</div>
+</body></html>`;
+
+  const w = window.open("", "_blank");
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => w.print(), 600);
+}
+
+function HojaFuncionModal({ ev, hoja, onSave, onClose }) {
+  const [f, setF] = useState(() => hoja ? { ...blankHojaFuncion(ev), ...hoja } : blankHojaFuncion(ev));
+  const [saving, setSaving] = useState(false);
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+  const setTiming = (idx, k, v) => setF(p => ({ ...p, timing: p.timing.map((t, i) => i === idx ? { ...t, [k]: v } : t) }));
+  const addTiming = () => setF(p => ({ ...p, timing: [...p.timing, { hs: "", actividad: "", lugar: "" }] }));
+  const delTiming = idx => setF(p => ({ ...p, timing: p.timing.filter((_, i) => i !== idx) }));
+
+  const cfg = TIPOS_PROPUESTA_HF[f.tipoPropuesta] || TIPOS_PROPUESTA_HF["Cena / Almuerzo"];
+
+  const submit = async () => {
+    setSaving(true);
+    try { await onSave(f); onClose(); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <Modal title="Hoja de Función" onClose={onClose} wide>
+      <div style={{ ...S.lbl, color: GOLD, marginBottom: "0.5rem" }}>01 · Datos del evento</div>
+      <div style={{ display: "flex", gap: "1rem" }}>
+        <Field label="Nombre del evento" half>
+          <input value={f.nombreEvento} onChange={e => set("nombreEvento", e.target.value)} style={S.inp} />
+        </Field>
+        <Field label="Cliente" half>
+          <input value={f.cliente} onChange={e => set("cliente", e.target.value)} style={S.inp} />
+        </Field>
+      </div>
+      <div style={{ display: "flex", gap: "1rem" }}>
+        <Field label="Fecha" half>
+          <input type="date" value={f.fecha} onChange={e => set("fecha", e.target.value)} style={S.inp} />
+        </Field>
+        <Field label="Sucursal" half>
+          <select value={f.sucursal} onChange={e => set("sucursal", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+            {SUCURSALES_HF.map(s => <option key={s}>{s}</option>)}
+          </select>
+        </Field>
+      </div>
+      <div style={{ display: "flex", gap: "1rem" }}>
+        <Field label="Espacio asignado" half>
+          <input value={f.espacioAsignado} onChange={e => set("espacioAsignado", e.target.value)} style={S.inp} placeholder="Rooftop, Salón Principal..." />
+        </Field>
+        <Field label="Horario" half>
+          <input value={f.horario} onChange={e => set("horario", e.target.value)} style={S.inp} placeholder="19:00 a 23:00 hs" />
+        </Field>
+      </div>
+      <Field label="PAX">
+        <input type="number" value={f.pax} onChange={e => set("pax", e.target.value)} style={S.inp} />
+      </Field>
+      <Field label="Nota">
+        <textarea value={f.notaEvento} onChange={e => set("notaEvento", e.target.value)} style={{ ...S.inp, minHeight: 60, resize: "vertical" }} />
+      </Field>
+
+      <div style={{ ...S.lbl, color: GOLD, margin: "1.25rem 0 0.5rem" }}>02 · Timing</div>
+      <div style={{ ...S.card, padding: "0.75rem", background: "#0D0D0B" }}>
+        {f.timing.map((t, i) => (
+          <div key={i} style={{ display: "flex", gap: "0.4rem", marginBottom: "0.4rem", alignItems: "center" }}>
+            <input value={t.hs} onChange={e => setTiming(i, "hs", e.target.value)} style={{ ...S.inp, width: 80, fontSize: "0.78rem" }} placeholder="HS" />
+            <input value={t.actividad} onChange={e => setTiming(i, "actividad", e.target.value)} style={{ ...S.inp, flex: 2, fontSize: "0.78rem" }} placeholder="Actividad" />
+            <input value={t.lugar} onChange={e => setTiming(i, "lugar", e.target.value)} style={{ ...S.inp, flex: 1, fontSize: "0.78rem" }} placeholder="Lugar" />
+            <button type="button" onClick={() => delTiming(i)}
+              style={{ background: "none", border: "none", color: "#553030", cursor: "pointer", fontSize: "0.9rem", padding: "0 0.3rem" }}>×</button>
+          </div>
+        ))}
+        <button type="button" onClick={addTiming} style={{ ...S.btnS, fontSize: "0.62rem", padding: "0.2rem 0.6rem", marginTop: "0.15rem" }}>+ fila</button>
+      </div>
+
+      <div style={{ ...S.lbl, color: GOLD, margin: "1.25rem 0 0.5rem" }}>03 · Gastronomía</div>
+      <Field label="Tipo de propuesta">
+        <select value={f.tipoPropuesta} onChange={e => set("tipoPropuesta", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+          {Object.keys(TIPOS_PROPUESTA_HF).map(t => <option key={t}>{t}</option>)}
+        </select>
+      </Field>
+      <Field label="Propuesta">
+        <input value={f.propuestaGastro} onChange={e => set("propuestaGastro", e.target.value)} style={S.inp} placeholder="Ej: Menú por pasos, Tapeo..." />
+      </Field>
+      {cfg.entrada && (
+        <Field label="Entrada">
+          <textarea value={f.entrada} onChange={e => set("entrada", e.target.value)} style={{ ...S.inp, minHeight: 50, resize: "vertical" }} />
+        </Field>
+      )}
+      {cfg.principal && (
+        <Field label="Principal">
+          <textarea value={f.principal} onChange={e => set("principal", e.target.value)} style={{ ...S.inp, minHeight: 50, resize: "vertical" }} />
+        </Field>
+      )}
+      {cfg.postre && (
+        <Field label="Postre">
+          <textarea value={f.postre} onChange={e => set("postre", e.target.value)} style={{ ...S.inp, minHeight: 50, resize: "vertical" }} />
+        </Field>
+      )}
+      {cfg.bebSinAlc && (
+        <Field label="Bebidas sin alcohol">
+          <textarea value={f.bebSinAlc} onChange={e => set("bebSinAlc", e.target.value)} style={{ ...S.inp, minHeight: 50, resize: "vertical" }} />
+        </Field>
+      )}
+      {cfg.bebConAlc && (
+        <Field label="Bebidas con alcohol">
+          <textarea value={f.bebConAlc} onChange={e => set("bebConAlc", e.target.value)} style={{ ...S.inp, minHeight: 50, resize: "vertical" }} />
+        </Field>
+      )}
+      {cfg.menusEsp && (
+        <Field label="Menús especiales">
+          <textarea value={f.menusEspeciales} onChange={e => set("menusEspeciales", e.target.value)} style={{ ...S.inp, minHeight: 50, resize: "vertical" }} />
+        </Field>
+      )}
+      {cfg.vajilla && (
+        <Field label="Vajilla">
+          <input value={f.vajilla} onChange={e => set("vajilla", e.target.value)} style={S.inp} />
+        </Field>
+      )}
+      <Field label="Nota">
+        <textarea value={f.notaGastro} onChange={e => set("notaGastro", e.target.value)} style={{ ...S.inp, minHeight: 50, resize: "vertical" }} />
+      </Field>
+
+      <div style={{ ...S.lbl, color: GOLD, margin: "1.25rem 0 0.5rem" }}>04 · Responsables por área</div>
+      <div style={{ ...S.card, padding: "0.75rem", background: "#0D0D0B" }}>
+        {RESPONSABLES_HF.map(r => (
+          <div key={r.key} style={{ display: "flex", gap: "0.6rem", marginBottom: "0.5rem", alignItems: "center" }}>
+            <div style={{ flex: 1, fontSize: "0.78rem", color: "#B0A898" }}>
+              <div style={{ color: "#F0EAD8" }}>{r.area}</div>
+              <div style={{ fontSize: "0.65rem", color: "#555045", marginTop: 2 }}>{r.tarea}</div>
+            </div>
+            <input value={f[r.key]} onChange={e => set(r.key, e.target.value)} style={{ ...S.inp, flex: 1, fontSize: "0.78rem" }} placeholder="Persona asignada" />
+          </div>
+        ))}
+      </div>
+
+      <div style={{ ...S.lbl, color: GOLD, margin: "1.25rem 0 0.5rem" }}>05 · Pedidos especiales</div>
+      <Field label="Nota">
+        <textarea value={f.pedidosEspeciales} onChange={e => set("pedidosEspeciales", e.target.value)} style={{ ...S.inp, minHeight: 90, resize: "vertical" }} placeholder="Cualquier requerimiento fuera de lo estándar..." />
+      </Field>
+
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.625rem", marginTop: "1rem" }}>
+        <button type="button" onClick={() => generarHojaFuncionPDF(ev, f)} style={S.btnS}>Descargar PDF</button>
+        <button type="button" onClick={submit} disabled={saving} style={{ ...S.btnP, opacity: saving ? 0.6 : 1 }}>
+          {saving ? "Guardando..." : "Guardar"}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── Operaciones PDF ──────────────────────────────────────────────────────────
 function exportarPDF(ev, ops) {
   const personal    = ops.filter(o => o.tipo === "personal");
@@ -1795,9 +2081,11 @@ function OperacionesList({ events, operaciones, setOpEventId }) {
 }
 
 // ─── Operaciones Detail ───────────────────────────────────────────────────────
-function OperacionDetalle({ ev, ops, recetas, equipoBase, onAdd, onAddBulk, onUpdate, onDelete, onBack }) {
+function OperacionDetalle({ ev, ops, recetas, equipoBase, hojasFuncion, onAdd, onAddBulk, onUpdate, onDelete, onBack, onSaveHojaFuncion }) {
   const [tab, setTab] = useState("menu");
   const [showPropuesta, setShowPropuesta] = useState(false);
+  const [showHoja, setShowHoja] = useState(false);
+  const hoja = hojasFuncion?.find(h => h.eventId === ev.id) || null;
   const venue     = (ev.notes||"").match(/Sede: ([^|]+)/)?.[1]?.trim() || "";
   const personal  = ops.filter(o => o.tipo === "personal").sort((a,b) => a.orden - b.orden);
   const platos    = ops.filter(o => o.tipo === "plato").sort((a,b) => a.orden - b.orden);
@@ -1821,6 +2109,7 @@ function OperacionDetalle({ ev, ops, recetas, equipoBase, onAdd, onAddBulk, onUp
           </div>
         </div>
         <div style={{ display: "flex", gap: "0.625rem" }}>
+          <button type="button" onClick={() => setShowHoja(true)} style={S.btnS}>Hoja de función</button>
           <button type="button" onClick={() => exportarPDF(ev, ops)} style={S.btnS}>Hoja de operaciones</button>
           <button type="button" onClick={() => setShowPropuesta(true)} style={S.btnP}>Generar presupuesto</button>
         </div>
@@ -1834,6 +2123,7 @@ function OperacionDetalle({ ev, ops, recetas, equipoBase, onAdd, onAddBulk, onUp
         ))}
       </div>
       {showPropuesta && <PropuestaModal ev={ev} onClose={() => setShowPropuesta(false)} />}
+      {showHoja && <HojaFuncionModal ev={ev} hoja={hoja} onSave={onSaveHojaFuncion} onClose={() => setShowHoja(false)} />}
       {tab === "menu"      && <MenuTab      ev={ev} platos={platos} ings={ings} recetas={recetas} onAdd={onAdd} onAddBulk={onAddBulk} onUpdate={onUpdate} onDelete={onDelete} />}
       {tab === "personal"  && <PersonalTab  ev={ev} personal={personal} equipoBase={equipoBase} onAdd={onAdd} onDelete={onDelete} />}
       {tab === "operacion" && <OperacionTab ev={ev} timings={timings} checkC={checkC} checkB={checkB} checkE={checkE} nota={nota} onAdd={onAdd} onUpdate={onUpdate} onDelete={onDelete} />}
@@ -2902,6 +3192,7 @@ export default function App() {
   const [recetas,      setRecetas]      = useState([]);
   const [marketingDB,  setMarketingDB]  = useState([]);
   const [usuariosDB,   setUsuariosDB]   = useState([]);
+  const [hojasFuncion, setHojasFuncion] = useState([]);
 
   const [eventModal,  setEventModal]  = useState(null);
   const [clientModal, setClientModal] = useState(null);
@@ -2920,6 +3211,7 @@ export default function App() {
         if (data.personal?.length)    setPersonalDB(data.personal.map(parsePersonal));
         if (data.marketing?.length)   setMarketingDB(data.marketing.map(parseMarketing));
         if (data.usuarios?.length)    setUsuariosDB(data.usuarios);
+        if (data.hojafuncion?.length) setHojasFuncion(data.hojafuncion.map(parseHojaFuncion));
         setLoading(false);
       })
       .catch(err => { setLoadError(err.message); setLoading(false); });
@@ -3029,6 +3321,19 @@ export default function App() {
   const updateMarketing = m => { const n = parseMarketing(m); setMarketingDB(prev => prev.map(x => x.id === n.id ? n : x)); sync("update", "Marketing", n); };
   const deleteMarketing = id => { setMarketingDB(prev => prev.filter(x => x.id !== id)); sync("delete", "Marketing", null, id); };
 
+  const saveHojaFuncion = async f => {
+    const row = { ...f, timing: JSON.stringify(f.timing || []) };
+    if (f.id) {
+      setHojasFuncion(prev => prev.map(h => h.id === f.id ? f : h));
+      await sheetsPost({ action: "update", sheet: "HojaFuncion", data: row });
+    } else {
+      const n = { ...f, id: nextId(hojasFuncion) };
+      const nRow = { ...n, timing: JSON.stringify(n.timing || []) };
+      setHojasFuncion(prev => [...prev, n]);
+      await sheetsPost({ action: "add", sheet: "HojaFuncion", data: nRow });
+    }
+  };
+
   const createUser = async (form) => {
     setSyncing(true);
     const json = await sheetsPost({ action: "createUser", data: form }).finally(() => setSyncing(false));
@@ -3087,7 +3392,7 @@ export default function App() {
         {view === "pipeline"   && <Pipeline  events={events} onMove={moveStage} onCard={setDetailEvent} onNew={() => setEventModal("new")} />}
         {view === "clients"    && <Clients   clients={clients} events={events} onNew={() => setClientModal("new")} onEdit={setClientModal} />}
         {view === "operaciones" && (opEventId
-          ? <OperacionDetalle ev={events.find(e => e.id === opEventId)} ops={operaciones.filter(o => o.eventId === opEventId)} recetas={recetas} equipoBase={personalDB} onAdd={addOp} onAddBulk={addBulkOps} onUpdate={updateOp} onDelete={deleteOp} onBack={() => setOpEventId(null)} />
+          ? <OperacionDetalle ev={events.find(e => e.id === opEventId)} ops={operaciones.filter(o => o.eventId === opEventId)} recetas={recetas} equipoBase={personalDB} hojasFuncion={hojasFuncion} onAdd={addOp} onAddBulk={addBulkOps} onUpdate={updateOp} onDelete={deleteOp} onBack={() => setOpEventId(null)} onSaveHojaFuncion={saveHojaFuncion} />
           : <OperacionesList events={events} operaciones={operaciones} setOpEventId={setOpEventId} />
         )}
         {view === "personal"   && <PersonalModule personal={personalDB} onAdd={addPersonal} onUpdate={updatePersonal} onDelete={deletePersonal} />}
