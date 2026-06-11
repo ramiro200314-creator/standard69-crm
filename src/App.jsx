@@ -68,11 +68,11 @@ const COST_CATS = ["Personal", "Mercaderías", "Bebidas", "Insumos / Bebidas", "
 // ─── Hoja de Función ──────────────────────────────────────────────────────────
 const SUCURSALES_HF = ["Standard 69 Güemes", "Standard 69 Villa Warcalde"];
 const TIPOS_PROPUESTA_HF = {
-  "Finger food":         { entrada: false, principal: false, postre: true,  bebSinAlc: true,  bebConAlc: true,  menusEsp: true,  vajilla: false },
-  "Finger food premium": { entrada: false, principal: false, postre: true,  bebSinAlc: true,  bebConAlc: true,  menusEsp: true,  vajilla: false },
-  "Merienda / Desayuno": { entrada: false, principal: false, postre: false, bebSinAlc: true,  bebConAlc: false, menusEsp: false, vajilla: false },
+  "Finger food":         { entrada: false, principal: true,  postre: true,  bebSinAlc: true,  bebConAlc: true,  menusEsp: true,  vajilla: false },
+  "Finger food premium": { entrada: false, principal: true,  postre: true,  bebSinAlc: true,  bebConAlc: true,  menusEsp: true,  vajilla: false },
+  "Merienda / Desayuno": { entrada: false, principal: true,  postre: false, bebSinAlc: true,  bebConAlc: false, menusEsp: false, vajilla: false },
   "Menú por pasos":      { entrada: true,  principal: true,  postre: true,  bebSinAlc: true,  bebConAlc: true,  menusEsp: true,  vajilla: true  },
-  "Tapeo":               { entrada: false, principal: false, postre: true,  bebSinAlc: true,  bebConAlc: true,  menusEsp: true,  vajilla: false },
+  "Tapeo":               { entrada: false, principal: true,  postre: true,  bebSinAlc: true,  bebConAlc: true,  menusEsp: true,  vajilla: false },
 };
 const TIPO_PROPUESTA_HF_DEFAULT = TIPOS_PROPUESTA_HF["Menú por pasos"];
 const RESPONSABLES_HF = [
@@ -1380,6 +1380,25 @@ const PROPUESTA_TEMPLATES = {
   },
 };
 
+// Pre-completa los campos de gastronomía de la Hoja de Función a partir de la propuesta estándar del tipo de menú
+const buildPropuestaGastro = tipo => {
+  const t = PROPUESTA_TEMPLATES[tipo];
+  if (!t) return {};
+  const join = arr => (arr || []).join("\n");
+  const out = {};
+  if (t.principal) {
+    out.entrada   = join(t.main);
+    out.principal = [...(t.principal.items || []), ...(t.principal.acomp || [])].join("\n");
+  } else {
+    out.principal = join(t.main);
+    out.entrada   = "";
+  }
+  out.postre    = join(t.postre);
+  out.bebSinAlc = join(t.bebSinAlc);
+  out.bebConAlc = join(t.bebConAlc);
+  return out;
+};
+
 async function imgToB64(url) {
   try {
     const r = await fetch(url);
@@ -1913,7 +1932,10 @@ function HojaFuncionModal({ ev, hoja, onSave, onClose }) {
 
       <div style={{ ...S.lbl, color: GOLD, margin: "1.25rem 0 0.5rem" }}>03 · Gastronomía</div>
       <Field label="Propuesta">
-        <select value={f.propuestaGastro} onChange={e => set("propuestaGastro", e.target.value)} style={{ ...S.inp, appearance: "none" }}>
+        <select value={f.propuestaGastro} onChange={e => {
+          const tipo = e.target.value;
+          setF(p => ({ ...p, propuestaGastro: tipo, ...buildPropuestaGastro(tipo) }));
+        }} style={{ ...S.inp, appearance: "none" }}>
           <option value="">Seleccionar...</option>
           {MENU_TIPOS.map(m => <option key={m.nombre}>{m.nombre}</option>)}
         </select>
